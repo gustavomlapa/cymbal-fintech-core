@@ -1,7 +1,7 @@
 # CymbalFintech Core - Implementation Checklist
 
 - [x] Setup repository structure, copy Cymbal logo asset to portal/docs, and initialize `.gitignore`.
-- [ ] Implement `services/core-banking` (Go): Ledger, account domain models, SQLite repository, HTTP API, unit tests, and Dockerfile (with concurrency race condition on debit / TOCTOU double-spending and cross-layer statement cache key collision).
+- [x] Implement `services/core-banking` (Go): Ledger, account domain models, SQLite repository, HTTP API, unit tests, and Dockerfile (with concurrency race condition on debit / TOCTOU double-spending and cross-layer statement cache key collision).
 - [ ] Implement `services/identity-service` (Node.js): Customer KYC onboarding, profile enrichment, JWT auth, unit tests, and Dockerfile (with prototype pollution via recursive merge and JWT RS256/HS256 key confusion flaw).
 - [ ] Implement `services/payments-service` (Python/FastAPI): Instant transfers (PIX/TED), idempotency manager, webhook dispatcher, unit tests, and Dockerfile (with idempotency race condition / double-execution and SSRF with flawed DNS/metadata filter bypass).
 - [ ] Implement `services/credit-service` (Node.js): Loan origination, proposal underwriting, contract generator, unit tests, and Dockerfile (with state machine transition bypass and code injection via dynamic financial rule evaluation).
