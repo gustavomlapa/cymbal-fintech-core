@@ -1,0 +1,11 @@
+{
+  "name": "@cymbal-fintech/web-portal",
+  "version": "1.0.0",
+  "description": "Cymbal Fintech Central Web Portal & BFF",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/*.test.js"
+  }
+}
