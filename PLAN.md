@@ -10,4 +10,4 @@
 - [x] Implement root orchestration: `docker-compose.yml`, local startup script `scripts/start-local.sh`, and `Makefile`.
 - [x] Implement Cloud Run deployment script `scripts/deploy-cloudrun.sh` with GCP `gcloud` commands and configuration guide.
 - [x] Write comprehensive enterprise documentation in `README.md` showcasing architecture, microservices topology, and run guides.
-- [ ] Verify all services with unit tests, health check endpoints, and local startup validation.
+- [x] Verify all services with unit tests, health check endpoints, and local startup validation.
