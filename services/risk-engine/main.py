@@ -114,6 +114,7 @@ class RiskHTTPHandler(BaseHTTPRequestHandler):
 
 def run():
     port = int(os.environ.get("PORT", 8085))
+    HTTPServer.allow_reuse_address = True
     server = HTTPServer(("0.0.0.0", port), RiskHTTPHandler)
     logger.info(f"Risk & Anti-Fraud engine running on port {port}")
     try:

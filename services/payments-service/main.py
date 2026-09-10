@@ -118,6 +118,7 @@ class PaymentsHTTPHandler(BaseHTTPRequestHandler):
 
 def run():
     port = int(os.environ.get("PORT", 8083))
+    HTTPServer.allow_reuse_address = True
     server = HTTPServer(("0.0.0.0", port), PaymentsHTTPHandler)
     logger.info(f"Payments & PIX service running on port {port}")
     try:

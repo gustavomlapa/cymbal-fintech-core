@@ -7,6 +7,18 @@ echo "=========================================================="
 echo " Starting CymbalFintech Core Platform (Local Environment) "
 echo "=========================================================="
 
+PORTS=(3000 8081 8082 8083 8084 8085)
+
+# 1. Pre-flight check: free any stale processes lingering on service ports
+echo "-> Checking and freeing service ports..."
+for port in "${PORTS[@]}"; do
+  pids=$(lsof -ti :"$port" 2>/dev/null || true)
+  if [ -n "$pids" ]; then
+    echo "   Freeing port $port (terminating stale PID(s): $pids)..."
+    kill -9 $pids 2>/dev/null || true
+  fi
+done
+
 PIDS=()
 
 cleanup() {
@@ -17,33 +29,39 @@ cleanup() {
       kill "$pid" 2>/dev/null || true
     fi
   done
+  for port in "${PORTS[@]}"; do
+    stale=$(lsof -ti :"$port" 2>/dev/null || true)
+    if [ -n "$stale" ]; then
+      kill -9 $stale 2>/dev/null || true
+    fi
+  done
   echo "All services terminated."
   exit 0
 }
 
 trap cleanup SIGINT SIGTERM EXIT
 
-# 1. Start Identity Service (Node.js) on port 8082
+# 2. Start Identity Service (Node.js) on port 8082
 echo "-> Starting identity-service on :8082..."
 PORT=8082 node "$DIR/services/identity-service/src/index.js" &
 PIDS+=($!)
 
-# 2. Start Payments Service (Python) on port 8083
+# 3. Start Payments Service (Python) on port 8083
 echo "-> Starting payments-service on :8083..."
-(cd "$DIR/services/payments-service" && PORT=8083 python3 main.py) &
+PYTHONPATH="$DIR/services/payments-service" PORT=8083 python3 "$DIR/services/payments-service/main.py" &
 PIDS+=($!)
 
-# 3. Start Credit Service (Node.js) on port 8084
+# 4. Start Credit Service (Node.js) on port 8084
 echo "-> Starting credit-service on :8084..."
 PORT=8084 node "$DIR/services/credit-service/src/index.js" &
 PIDS+=($!)
 
-# 4. Start Risk Engine (Python) on port 8085
+# 5. Start Risk Engine (Python) on port 8085
 echo "-> Starting risk-engine on :8085..."
-(cd "$DIR/services/risk-engine" && PORT=8085 python3 main.py) &
+PYTHONPATH="$DIR/services/risk-engine" PORT=8085 python3 "$DIR/services/risk-engine/main.py" &
 PIDS+=($!)
 
-# 5. Start Web Portal (Node.js) on port 3000
+# 6. Start Web Portal (Node.js) on port 3000
 echo "-> Starting web-portal on :3000..."
 PORT=3000 node "$DIR/services/web-portal/server.js" &
 PIDS+=($!)
@@ -65,4 +83,3 @@ echo " Press Ctrl+C to terminate all services."
 echo ""
 
 wait
-
