@@ -1,0 +1,51 @@
+# General
+.DS_Store
+*.log
+*.tmp
+.env
+.env.*
+!.env.example
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+dist/
+build/
+coverage/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Go
+bin/
+pkg/
+*.test
+*.prof
+*.exe
+core-banking-server
+
+# Databases & local state
+*.db
+*.sqlite
+*.sqlite3
+data/
+uploads/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
