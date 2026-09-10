@@ -1,0 +1,120 @@
+version: '3.8'
+
+services:
+  web-portal:
+    build:
+      context: ./services/web-portal
+      dockerfile: Dockerfile
+    container_name: cymbal-web-portal
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - CORE_BANKING_URL=http://core-banking:8081
+      - IDENTITY_SERVICE_URL=http://identity-service:8082
+      - PAYMENTS_SERVICE_URL=http://payments-service:8083
+      - CREDIT_SERVICE_URL=http://credit-service:8084
+      - RISK_ENGINE_URL=http://risk-engine:8085
+    depends_on:
+      - core-banking
+      - identity-service
+      - payments-service
+      - credit-service
+      - risk-engine
+    networks:
+      - cymbal-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  core-banking:
+    build:
+      context: ./services/core-banking
+      dockerfile: Dockerfile
+    container_name: cymbal-core-banking
+    ports:
+      - "8081:8081"
+    environment:
+      - PORT=8081
+    networks:
+      - cymbal-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  identity-service:
+    build:
+      context: ./services/identity-service
+      dockerfile: Dockerfile
+    container_name: cymbal-identity-service
+    ports:
+      - "8082:8082"
+    environment:
+      - PORT=8082
+    networks:
+      - cymbal-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8082/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  payments-service:
+    build:
+      context: ./services/payments-service
+      dockerfile: Dockerfile
+    container_name: cymbal-payments-service
+    ports:
+      - "8083:8083"
+    environment:
+      - PORT=8083
+    networks:
+      - cymbal-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8083/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  credit-service:
+    build:
+      context: ./services/credit-service
+      dockerfile: Dockerfile
+    container_name: cymbal-credit-service
+    ports:
+      - "8084:8084"
+    environment:
+      - PORT=8084
+    networks:
+      - cymbal-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8084/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  risk-engine:
+    build:
+      context: ./services/risk-engine
+      dockerfile: Dockerfile
+    container_name: cymbal-risk-engine
+    ports:
+      - "8085:8085"
+    environment:
+      - PORT=8085
+      - PARTNER_HMAC_SECRET=cymbal_demo_secret_key_2026
+    networks:
+      - cymbal-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8085/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+networks:
+  cymbal-net:
+    driver: bridge
