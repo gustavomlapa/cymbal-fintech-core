@@ -6,24 +6,49 @@
 
 set -euo pipefail
 
-# 1. Configuration & Defaults
-PROJECT_ID="${GCP_PROJECT:-$(gcloud config get-value project 2>/dev/null || echo "")}"
-REGION="${GCP_REGION:-southamerica-east1}" # São Paulo by default for Brazilian fintech demo
+# 1. Configuration & Interactive Confirmation
+DETECTED_PROJECT="${GCP_PROJECT:-$(gcloud config get-value project 2>/dev/null || echo "")}"
+DEFAULT_REGION="${GCP_REGION:-southamerica-east1}" # São Paulo by default for Brazilian fintech demo
 ALLOW_UNAUTHENTICATED="--allow-unauthenticated"
 
 echo "=================================================================="
 echo " CymbalFintech Cloud Run Deployment Automation"
 echo "=================================================================="
 
-if [ -z "$PROJECT_ID" ]; then
-  echo "Error: GCP project ID is not set. Please set GCP_PROJECT or configure gcloud:"
-  echo "  export GCP_PROJECT=your-gcp-project-id"
-  echo "  gcloud config set project your-gcp-project-id"
+# Prompt for Project ID & Region if running interactively
+if [ -t 0 ] || { [ -c /dev/tty ] && exec < /dev/tty 2>/dev/null; }; then
+  if [ -n "$DETECTED_PROJECT" ]; then
+    read -r -p "Enter GCP Project ID [default: ${DETECTED_PROJECT}]: " USER_PROJECT
+    PROJECT_ID="${USER_PROJECT:-$DETECTED_PROJECT}"
+  else
+    read -r -p "Enter GCP Project ID: " PROJECT_ID
+  fi
+
+  read -r -p "Enter GCP Region [default: ${DEFAULT_REGION}]: " USER_REGION
+  REGION="${USER_REGION:-$DEFAULT_REGION}"
+
+  echo ""
+  echo "Target Deployment Configuration:"
+  echo "  - Google Cloud Project ID : ${PROJECT_ID}"
+  echo "  - Region                 : ${REGION}"
+  echo ""
+  read -r -p "Do you want to proceed with deployment? (y/N): " CONFIRM
+  if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
+    echo "Deployment aborted by user."
+    exit 0
+  fi
+else
+  PROJECT_ID="${DETECTED_PROJECT}"
+  REGION="${DEFAULT_REGION}"
+fi
+
+if [ -z "${PROJECT_ID:-}" ]; then
+  echo "Error: GCP project ID is not set. Please provide a valid project ID."
   exit 1
 fi
 
-echo "Deploying to Project: ${PROJECT_ID}"
-echo "Deploying to Region:  ${REGION}"
+echo ""
+echo "Proceeding with deployment to Project '${PROJECT_ID}' in Region '${REGION}'..."
 echo ""
 
 # 2. Enable Required GCP APIs
