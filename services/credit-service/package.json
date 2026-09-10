@@ -1,0 +1,11 @@
+{
+  "name": "@cymbal-fintech/credit-service",
+  "version": "1.0.0",
+  "description": "Cymbal Fintech Credit Origination & Underwriting Service",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test test/*.test.js"
+  }
+}
