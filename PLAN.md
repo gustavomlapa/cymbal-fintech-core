@@ -9,5 +9,5 @@
 - [x] Implement `services/web-portal` (Node.js/Express + Modern UI): Central dashboard integrating Cymbal logo, balances, transfer flow, KYC profile, credit simulator, and live risk metrics.
 - [x] Implement root orchestration: `docker-compose.yml`, local startup script `scripts/start-local.sh`, and `Makefile`.
 - [x] Implement Cloud Run deployment script `scripts/deploy-cloudrun.sh` with GCP `gcloud` commands and configuration guide.
-- [ ] Write comprehensive enterprise documentation in `README.md` showcasing architecture, microservices topology, and run guides.
+- [x] Write comprehensive enterprise documentation in `README.md` showcasing architecture, microservices topology, and run guides.
 - [ ] Verify all services with unit tests, health check endpoints, and local startup validation.
