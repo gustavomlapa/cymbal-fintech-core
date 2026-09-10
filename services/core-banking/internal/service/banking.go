@@ -186,3 +186,4 @@ func (s *BankingService) invalidateStatementCache(accountID string) {
 	defer s.cacheMu.Unlock()
 	delete(s.statementCache, fmt.Sprintf("stmt:%s", accountID))
 }
+

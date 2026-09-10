@@ -51,3 +51,4 @@ class WebhookDispatcher:
         logger.info(f"Dispatching event {event_type} to merchant {merchant_id} at {target_url}")
         # In production would execute asynchronous HTTP POST request
         return True
+

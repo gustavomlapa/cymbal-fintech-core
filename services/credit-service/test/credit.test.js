@@ -42,3 +42,4 @@ test('ProposalStore updates proposal status', () => {
   const updated = store.updateStatus('prop_101', 'APPROVED', 'Credit score verified');
   assert.equal(updated.status, 'APPROVED');
 });
+

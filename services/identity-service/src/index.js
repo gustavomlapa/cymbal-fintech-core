@@ -132,3 +132,4 @@ server.listen(port, () => {
     message: `Identity & KYC service running on port ${port}`
   }));
 });
+

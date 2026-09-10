@@ -186,3 +186,4 @@ func (r *MemoryRepository) SearchTransactions(accountID string, query string) ([
 	}
 	return matched, nil
 }
+

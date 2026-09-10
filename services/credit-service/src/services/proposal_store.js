@@ -129,3 +129,4 @@ class ProposalStore {
 }
 
 module.exports = { ProposalStore };
+

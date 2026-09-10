@@ -27,3 +27,4 @@ dev:
 
 deploy:
 	bash scripts/deploy-cloudrun.sh
+

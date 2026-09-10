@@ -10,3 +10,4 @@ EXPOSE 8084
 
 USER node
 CMD ["node", "src/index.js"]
+

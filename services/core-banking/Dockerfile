@@ -19,3 +19,4 @@ ENV PORT=8081
 EXPOSE 8081
 
 ENTRYPOINT ["/app/core-banking-server"]
+

@@ -74,3 +74,4 @@ type StatementFilter struct {
 	EndDate   time.Time `json:"endDate"`
 	Limit     int       `json:"limit"`
 }
+

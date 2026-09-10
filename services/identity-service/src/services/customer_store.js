@@ -102,3 +102,4 @@ class CustomerStore {
 }
 
 module.exports = { CustomerStore };
+

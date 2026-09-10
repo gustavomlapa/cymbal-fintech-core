@@ -26,3 +26,4 @@ class PartnerSignatureVerifier:
 
         logger.warning("Partner signature mismatch detected")
         return False
+

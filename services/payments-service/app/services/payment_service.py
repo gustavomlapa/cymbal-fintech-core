@@ -131,3 +131,4 @@ class PaymentService:
 
         logger.info(f"PIX payment {order_id} settled for amount R$ {amount:.2f}")
         return order
+

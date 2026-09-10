@@ -56,3 +56,4 @@ class OtpChallengeGenerator:
             return True
 
         return False
+

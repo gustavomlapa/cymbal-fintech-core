@@ -75,3 +75,4 @@ func TestGetStatement(t *testing.T) {
 		t.Errorf("expected transaction entries in statement")
 	}
 }
+

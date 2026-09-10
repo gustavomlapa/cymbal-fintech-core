@@ -13,3 +13,4 @@ COPY . .
 EXPOSE 8085
 
 CMD ["python", "main.py"]
+

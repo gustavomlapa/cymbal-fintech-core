@@ -149,3 +149,4 @@ echo " Payments Service:    ${PAYMENTS_URL}"
 echo " Credit Service:      ${CREDIT_URL}"
 echo " Risk Engine:         ${RISK_URL}"
 echo "=================================================================="
+

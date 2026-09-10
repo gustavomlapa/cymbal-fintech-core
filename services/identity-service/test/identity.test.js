@@ -41,3 +41,4 @@ test('JwtService issues and validates valid token', () => {
   assert.equal(payload.sub, 'cust_001');
   assert.equal(payload.role, 'customer');
 });
+

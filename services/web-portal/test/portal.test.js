@@ -18,3 +18,4 @@ test('simulatePortalLoan calculates loan simulation schedule', () => {
   assert.ok(result.monthlyInstallment > 0);
   assert.equal(result.schedule.length, 24);
 });
+

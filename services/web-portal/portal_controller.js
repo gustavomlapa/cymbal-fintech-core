@@ -170,3 +170,4 @@ module.exports = {
   executePortalTransfer,
   evaluatePortalRisk
 };
+

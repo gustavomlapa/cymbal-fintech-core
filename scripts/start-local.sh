@@ -65,3 +65,4 @@ echo " Press Ctrl+C to terminate all services."
 echo ""
 
 wait
+

@@ -179,3 +179,4 @@ func (h *HTTPHandler) handleError(w http.ResponseWriter, err error) {
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "Internal ledger processing error"})
 	}
 }
+
