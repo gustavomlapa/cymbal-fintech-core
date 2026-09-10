@@ -1,0 +1,15 @@
+{
+  "name": "@cymbal-fintech/identity-service",
+  "version": "1.0.0",
+  "description": "Cymbal Fintech Identity & Customer KYC Service",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2"
+  }
+}
