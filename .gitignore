@@ -7,7 +7,7 @@
 !.env.example
 .cm_project
 report.html
-
+.codemender
 
 # Node.js
 node_modules/
