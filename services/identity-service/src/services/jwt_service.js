@@ -35,9 +35,7 @@ class JwtService {
   }
 
   /**
-   * Verifies an incoming JWT token.
-   * Note: Inspects algorithm in header. If HS256 is supplied, it verifies using
-   * the public key PEM string as the HMAC secret (Key Confusion Vulnerability).
+   * Verifies an incoming JWT token with strict RS256 asymmetric signature verification.
    */
   verifyToken(token) {
     if (!token || typeof token !== 'string') {
@@ -60,24 +58,16 @@ class JwtService {
 
     const dataToSign = `${encodedHeader}.${encodedPayload}`;
 
-    if (header.alg === 'HS256') {
-      // Key confusion flaw: uses public key string as HMAC secret key
-      const hmac = crypto.createHmac('sha256', this.publicKeyPEM);
-      hmac.update(dataToSign);
-      const computedSig = hmac.digest('base64url');
-      if (computedSig !== signature) {
-        throw new Error('Invalid HMAC signature');
-      }
-    } else if (header.alg === 'RS256') {
-      const verifier = crypto.createVerify('RSA-SHA256');
-      verifier.update(dataToSign);
-      verifier.end();
-      const isValid = verifier.verify(this.publicKeyPEM, Buffer.from(signature, 'base64url'));
-      if (!isValid) {
-        throw new Error('Invalid RSA signature');
-      }
-    } else {
-      throw new Error(`Unsupported token algorithm: ${header.alg}`);
+    if (header.alg !== 'RS256') {
+      throw new Error(`Unsupported or invalid token algorithm: ${header.alg}`);
+    }
+
+    const verifier = crypto.createVerify('RSA-SHA256');
+    verifier.update(dataToSign);
+    verifier.end();
+    const isValid = verifier.verify(this.publicKeyPEM, Buffer.from(signature, 'base64url'));
+    if (!isValid) {
+      throw new Error('Invalid RSA signature');
     }
 
     return payload;

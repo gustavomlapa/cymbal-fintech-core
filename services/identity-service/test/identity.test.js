@@ -55,3 +55,23 @@ test('JwtService issues and validates valid token', () => {
   assert.equal(payload.role, 'customer');
 });
 
+test('JwtService rejects tokens with HS256 algorithm confusion', () => {
+  const crypto = require('crypto');
+  const jwtSvc = new JwtService();
+
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const payload = Buffer.from(JSON.stringify({ sub: 'admin_forged', role: 'admin' })).toString('base64url');
+  const dataToSign = `${header}.${payload}`;
+
+  // Attacker signs with the public key as HMAC secret
+  const hmac = crypto.createHmac('sha256', jwtSvc.publicKeyPEM);
+  hmac.update(dataToSign);
+  const signature = hmac.digest('base64url');
+  const forgedToken = `${dataToSign}.${signature}`;
+
+  assert.throws(() => {
+    jwtSvc.verifyToken(forgedToken);
+  }, /unsupported or invalid token algorithm/i);
+});
+
+
