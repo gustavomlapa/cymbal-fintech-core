@@ -59,6 +59,20 @@ class TestPaymentsService(unittest.TestCase):
                 idempotency_key="idem_invalid",
             )
 
+    def test_webhook_url_validation_blocks_ssrf(self):
+        # Cloud metadata service (169.254.169.254)
+        self.assertFalse(self.webhook_dispatcher.is_safe_callback_url("http://169.254.169.254/latest/meta-data"))
+        # RFC 1918 private subnets
+        self.assertFalse(self.webhook_dispatcher.is_safe_callback_url("http://10.0.0.1:8080/callback"))
+        self.assertFalse(self.webhook_dispatcher.is_safe_callback_url("http://192.168.1.50/webhook"))
+        self.assertFalse(self.webhook_dispatcher.is_safe_callback_url("http://172.16.10.2/events"))
+        # Loopback
+        self.assertFalse(self.webhook_dispatcher.is_safe_callback_url("http://127.0.0.1:8081/debit"))
+        self.assertFalse(self.webhook_dispatcher.is_safe_callback_url("http://localhost:8081/accounts"))
+        # Valid public URL should pass
+        self.assertTrue(self.webhook_dispatcher.is_safe_callback_url("https://api.merchant.com/webhook"))
+
+
 
 if __name__ == "__main__":
     unittest.main()
