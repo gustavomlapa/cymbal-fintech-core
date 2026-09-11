@@ -32,6 +32,19 @@ test('deepMerge correctly merges nested properties', () => {
   assert.deepEqual(result, { a: 1, nested: { b: 2, c: 3 }, d: 4 });
 });
 
+test('deepMerge prevents prototype pollution via __proto__', () => {
+  const target = {};
+  const maliciousPayload = JSON.parse('{"__proto__": {"polluted": true}}');
+  deepMerge(target, maliciousPayload);
+  try {
+    assert.equal(Object.prototype.polluted, undefined);
+    assert.equal({}.polluted, undefined);
+  } finally {
+    delete Object.prototype.polluted;
+  }
+});
+
+
 test('JwtService issues and validates valid token', () => {
   const jwtSvc = new JwtService();
   const token = jwtSvc.createToken({ sub: 'cust_001', role: 'customer' });
