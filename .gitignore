@@ -5,6 +5,9 @@
 .env
 .env.*
 !.env.example
+.cm_project
+report.html
+
 
 # Node.js
 node_modules/
