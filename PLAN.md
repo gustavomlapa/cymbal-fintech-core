@@ -1,13 +1,21 @@
-# CymbalFintech Core - Implementation Checklist
+# CymbalFintech Core - Security Remediation Plan
 
-- [x] Setup repository structure, copy Cymbal logo asset to portal/docs, and initialize `.gitignore`.
-- [x] Implement `services/core-banking` (Go): Ledger, account domain models, SQLite repository, HTTP API, unit tests, and Dockerfile (with concurrency race condition on debit / TOCTOU double-spending and cross-layer statement cache key collision).
-- [x] Implement `services/identity-service` (Node.js): Customer KYC onboarding, profile enrichment, JWT auth, unit tests, and Dockerfile (with prototype pollution via recursive merge and JWT RS256/HS256 key confusion flaw).
-- [x] Implement `services/payments-service` (Python/FastAPI): Instant transfers (PIX/TED), idempotency manager, webhook dispatcher, unit tests, and Dockerfile (with idempotency race condition / double-execution and SSRF with flawed DNS/metadata filter bypass).
-- [x] Implement `services/credit-service` (Node.js): Loan origination, proposal underwriting, contract generator, unit tests, and Dockerfile (with state machine transition bypass and code injection via dynamic financial rule evaluation).
-- [x] Implement `services/risk-engine` (Python/FastAPI): Fraud scoring engine, challenge OTP generator, signature verification, unit tests, and Dockerfile (with weak PRNG in financial challenge OTP and timing discrepancy with fallback secret).
-- [x] Implement `services/web-portal` (Node.js/Express + Modern UI): Central dashboard integrating Cymbal logo, balances, transfer flow, KYC profile, credit simulator, and live risk metrics.
-- [x] Implement root orchestration: `docker-compose.yml`, local startup script `scripts/start-local.sh`, and `Makefile`.
-- [x] Implement Cloud Run deployment script `scripts/deploy-cloudrun.sh` with GCP `gcloud` commands and configuration guide.
-- [x] Write comprehensive enterprise documentation in `README.md` showcasing architecture, microservices topology, and run guides.
-- [x] Verify all services with unit tests, health check endpoints, and local startup validation.
+Branch: `hot-fix-security`
+
+### Vulnerabilidades Mantidas (Intocadas por solicitação)
+- `341eb542` (Critical) - Code Injection em `services/credit-service/src/services/contract_engine.js`
+- `eb2ac6aa` (Critical) - JWT Algorithm Confusion em `services/identity-service/src/services/jwt_service.js`
+- `6c4ec467` (High) - TOCTOU Race Condition em `services/core-banking/internal/service/banking.go`
+- `01186ec6` (High) - Broken State Machine Transition em `services/credit-service/src/services/proposal_store.js`
+
+### Checklist de Execução (TDD)
+- [x] In `services/identity-service/test/identity.test.js`, write a failing unit test asserting that `deepMerge` does not pollute `Object.prototype` when `__proto__` is passed.
+- [x] In `services/identity-service/src/utils/merge.js`, filter out forbidden prototype keys (`__proto__`, `constructor`, `prototype`) until test passes (Fix `cadfef6a`).
+- [x] In `services/risk-engine/tests/test_risk.py`, write a failing unit test asserting OTP generation uses non-predictable CSPRNG.
+- [x] In `services/risk-engine/app/engine/otp.py`, replace weak PRNG `random.seed(now_ts)` with CSPRNG `secrets` until test passes (Fix `b850817a`).
+- [x] In `services/risk-engine/tests/test_risk.py`, write a failing unit test asserting `PartnerSignatureVerifier` uses constant-time comparison and avoids default vulnerable secrets.
+- [x] In `services/risk-engine/app/engine/auth.py`, implement `hmac.compare_digest` and ephemeral random fallback key instead of hardcoded default string until test passes (Fix `27454088`).
+- [x] In `services/payments-service/tests/test_payments.py`, write failing unit tests asserting `is_safe_callback_url` rejects metadata IP (169.254.169.254) and private RFC 1918 IPs.
+- [x] In `services/payments-service/app/services/webhook_dispatcher.py`, implement DNS resolution and IP address range checks with `ipaddress` until tests pass (Fix `0c2e133f`).
+- [x] Run full test suites across all services and verify git status.
+
