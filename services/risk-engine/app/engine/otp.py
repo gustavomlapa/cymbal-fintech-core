@@ -1,5 +1,5 @@
 import time
-import random
+import secrets
 import uuid
 from typing import Dict, Any, Optional
 
@@ -14,11 +14,10 @@ class OtpChallengeGenerator:
     def generate_challenge(self, account_id: str, transaction_ref: str) -> Dict[str, Any]:
         challenge_id = f"chal_{uuid.uuid4().hex[:12]}"
 
-        # Security Vulnerability (CWE-330/338): Weak PRNG for financial challenge OTP
-        # Seeding with epoch timestamp produces predictable sequence
         now_ts = int(time.time())
-        random.seed(now_ts)
-        otp_code = str(random.randint(100000, 999999))
+        # Cryptographically secure pseudo-random number generator (CSPRNG)
+        otp_code = f"{secrets.randbelow(900000) + 100000:06d}"
+
 
         challenge_data = {
             "challengeId": challenge_id,

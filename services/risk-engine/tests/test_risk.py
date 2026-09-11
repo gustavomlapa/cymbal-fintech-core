@@ -45,6 +45,29 @@ class TestRiskEngine(unittest.TestCase):
         is_valid = self.otp_gen.verify_challenge(challenge["challengeId"], challenge["otpCode"])
         self.assertTrue(is_valid)
 
+    def test_otp_generation_is_cryptographically_secure_not_epoch_seeded(self):
+        import time, random
+        now_ts = int(time.time())
+        random.seed(now_ts)
+        predicted_weak_code = str(random.randint(100000, 999999))
+
+        challenge = self.otp_gen.generate_challenge("acc_1001", "pay_test_predictable")
+        self.assertNotEqual(challenge["otpCode"], predicted_weak_code)
+
+    def test_partner_verifier_does_not_use_vulnerable_default_secret(self):
+        import hmac, hashlib
+        # Ensure environment secret is unset for this instance
+        old_secret = os.environ.pop("PARTNER_HMAC_SECRET", None)
+        try:
+            verifier = PartnerSignatureVerifier()
+            payload = b'{"action":"test"}'
+            default_secret_sig = hmac.new(b"cymbal_default_internal_sec_2026", payload, hashlib.sha256).hexdigest()
+            self.assertFalse(verifier.verify_signature(payload, default_secret_sig))
+        finally:
+            if old_secret:
+                os.environ["PARTNER_HMAC_SECRET"] = old_secret
+
+
 
 if __name__ == "__main__":
     unittest.main()
