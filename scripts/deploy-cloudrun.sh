@@ -59,9 +59,43 @@ gcloud services enable \
   cloudbuild.googleapis.com \
   --project="${PROJECT_ID}"
 
-# 3. Deploy Microservices sequentially using Cloud Build packs / Dockerfiles
+# 3. Configure IAM Permissions for Cloud Build / Compute Engine Default Service Account
 echo ""
-echo "==> Step 2: Deploying Core Banking Service (Go)..."
+echo "==> Step 2: Configuring IAM Permissions for Cloud Build Service Accounts..."
+PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format="value(projectNumber)")
+COMPUTE_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+CLOUDBUILD_SA="${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com"
+
+echo "Project Number: ${PROJECT_NUMBER}"
+echo "Configuring build permissions for service account: ${COMPUTE_SA}"
+
+# Cloud Build requires permissions to read source from Cloud Storage, write build logs, and push images to Artifact Registry
+BUILD_ROLES=(
+  "roles/storage.objectViewer"
+  "roles/logging.logWriter"
+  "roles/artifactregistry.writer"
+)
+
+for role in "${BUILD_ROLES[@]}"; do
+  echo "  - Granting ${role} to ${COMPUTE_SA}..."
+  gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+    --member="serviceAccount:${COMPUTE_SA}" \
+    --role="${role}" \
+    --condition=None \
+    --quiet >/dev/null || true
+done
+
+for role in "${BUILD_ROLES[@]}"; do
+  gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+    --member="serviceAccount:${CLOUDBUILD_SA}" \
+    --role="${role}" \
+    --condition=None \
+    --quiet >/dev/null || true
+done
+
+# 4. Deploy Microservices sequentially using Cloud Build packs / Dockerfiles
+echo ""
+echo "==> Step 3: Deploying Core Banking Service (Go)..."
 gcloud run deploy cymbal-core-banking \
   --source=services/core-banking \
   --region="${REGION}" \
@@ -78,7 +112,7 @@ CORE_BANKING_URL=$(gcloud run services describe cymbal-core-banking --region="${
 echo "Core Banking deployed at: ${CORE_BANKING_URL}"
 
 echo ""
-echo "==> Step 3: Deploying Identity & KYC Service (Node.js)..."
+echo "==> Step 4: Deploying Identity & KYC Service (Node.js)..."
 gcloud run deploy cymbal-identity-service \
   --source=services/identity-service \
   --region="${REGION}" \
@@ -95,7 +129,7 @@ IDENTITY_URL=$(gcloud run services describe cymbal-identity-service --region="${
 echo "Identity Service deployed at: ${IDENTITY_URL}"
 
 echo ""
-echo "==> Step 4: Deploying Payments & PIX Service (Python)..."
+echo "==> Step 5: Deploying Payments & PIX Service (Python)..."
 gcloud run deploy cymbal-payments-service \
   --source=services/payments-service \
   --region="${REGION}" \
@@ -112,7 +146,7 @@ PAYMENTS_URL=$(gcloud run services describe cymbal-payments-service --region="${
 echo "Payments Service deployed at: ${PAYMENTS_URL}"
 
 echo ""
-echo "==> Step 5: Deploying Credit & Underwriting Service (Node.js)..."
+echo "==> Step 6: Deploying Credit & Underwriting Service (Node.js)..."
 gcloud run deploy cymbal-credit-service \
   --source=services/credit-service \
   --region="${REGION}" \
@@ -129,7 +163,7 @@ CREDIT_URL=$(gcloud run services describe cymbal-credit-service --region="${REGI
 echo "Credit Service deployed at: ${CREDIT_URL}"
 
 echo ""
-echo "==> Step 6: Deploying Risk & Anti-Fraud Engine (Python)..."
+echo "==> Step 7: Deploying Risk & Anti-Fraud Engine (Python)..."
 gcloud run deploy cymbal-risk-engine \
   --source=services/risk-engine \
   --region="${REGION}" \
@@ -147,7 +181,7 @@ RISK_URL=$(gcloud run services describe cymbal-risk-engine --region="${REGION}" 
 echo "Risk Engine deployed at: ${RISK_URL}"
 
 echo ""
-echo "==> Step 7: Deploying Central Web Portal & BFF (Node.js)..."
+echo "==> Step 8: Deploying Central Web Portal & BFF (Node.js)..."
 gcloud run deploy cymbal-web-portal \
   --source=services/web-portal \
   --region="${REGION}" \

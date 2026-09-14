@@ -146,9 +146,10 @@ bash scripts/deploy-cloudrun.sh
 
 The script will:
 1. Enable `run.googleapis.com`, `cloudbuild.googleapis.com`, and `artifactregistry.googleapis.com`.
-2. Build container images and deploy each microservice with serverless scaling.
-3. Automatically link backend microservice URLs to the `web-portal` BFF.
-4. Output verified public HTTPS endpoints.
+2. Configure required IAM roles for Cloud Build and Compute Engine default service accounts.
+3. Build container images and deploy each microservice with serverless scaling.
+4. Automatically link backend microservice URLs to the `web-portal` BFF.
+5. Output verified public HTTPS endpoints.
 
 ---
 
