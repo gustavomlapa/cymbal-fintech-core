@@ -14,9 +14,9 @@ Branch: `hot-fix-security`
 - [x] In `services/identity-service/test/identity.test.js`, write a failing unit test asserting `verifyToken` rejects tokens forged with HS256 algorithm.
 - [x] In `services/identity-service/src/services/jwt_service.js`, strictly enforce RS256 algorithm and remove HS256 verification path until test passes (Fix `eb2ac6aa`).
 - [x] Run full test suites across all services.
-### Deployment Automation Fix
-- [x] In `scripts/deploy-cloudrun.sh`, add automated IAM permission granting (`roles/storage.objectViewer`, `roles/logging.logWriter`, `roles/artifactregistry.writer`) for the Compute Engine and Cloud Build service accounts.
-- [x] In `README.md`, update deployment steps documentation to reflect IAM provisioning.
-- [x] Test/validate bash script syntax and structure.
+### Build Fixes
+- [x] In `services/core-banking/internal/repository/memory.go`, remove unused `"fmt"` import causing Cloud Build compilation failure.
+- [x] Commit and push fixes to remote branches (`hot-fix-security` and `hot-fix`).
+
 
 
