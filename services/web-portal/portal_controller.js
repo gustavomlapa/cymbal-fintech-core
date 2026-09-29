@@ -26,24 +26,24 @@ const state = {
       type: 'CREDIT',
       amount: 5000.00,
       balanceAfter: 25480.50,
-      description: 'PIX recebido - Consultoria Cymbal',
-      date: 'Hoje, 10:30'
+      description: 'PIX recibido - Consultoría Cymbal',
+      date: 'Hoy, 10:30'
     },
     {
       id: 'tx_902',
       type: 'DEBIT',
       amount: 350.00,
       balanceAfter: 20480.50,
-      description: 'Pagamento de Boleto de Serviços',
-      date: 'Ontem, 16:45'
+      description: 'Pago de Factura de Servicios',
+      date: 'Ayer, 16:45'
     },
     {
       id: 'tx_903',
       type: 'CREDIT',
       amount: 12500.00,
       balanceAfter: 20830.50,
-      description: 'Transferência TED - Distribuição de Dividendos',
-      date: '05 Set, 09:12'
+      description: 'Transferencia TED - Distribución de Dividendos',
+      date: '05 Sep, 09:12'
     }
   ],
   proposals: [
@@ -114,10 +114,10 @@ function simulatePortalLoan(amount, termMonths, annualRate = 0.165) {
 function executePortalTransfer({ amount, pixKey, description }) {
   const val = parseFloat(amount);
   if (val <= 0) {
-    throw new Error('Valor inválido para transferência');
+    throw new Error('Monto inválido para transferencia');
   }
   if (state.account.balance < val) {
-    throw new Error('Saldo insuficiente para transferência');
+    throw new Error('Saldo insuficiente para transferencia');
   }
 
   state.account.balance = parseFloat((state.account.balance - val).toFixed(2));
@@ -126,8 +126,8 @@ function executePortalTransfer({ amount, pixKey, description }) {
     type: 'DEBIT',
     amount: val,
     balanceAfter: state.account.balance,
-    description: `PIX enviado: ${pixKey} - ${description || 'Transferência'}`,
-    date: 'Agora'
+    description: `PIX enviado: ${pixKey} - ${description || 'Transferencia'}`,
+    date: 'Ahora'
   };
 
   state.recentTransactions.unshift(newTx);

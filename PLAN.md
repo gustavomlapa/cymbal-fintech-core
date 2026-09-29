@@ -11,3 +11,13 @@
 - [x] Implement Cloud Run deployment script `scripts/deploy-cloudrun.sh` with GCP `gcloud` commands and configuration guide.
 - [x] Write comprehensive enterprise documentation in `README.md` showcasing architecture, microservices topology, and run guides.
 - [x] Verify all services with unit tests, health check endpoints, and local startup validation.
+
+## Phase 2: Web Portal Spanish Localization (es)
+- [x] In `services/web-portal/test/portal.test.js`, add tests asserting Spanish transaction descriptions, dates, and error messages.
+- [x] In `services/web-portal/portal_controller.js`, translate transaction descriptions, dates, and transfer validation errors to Spanish.
+- [x] In `services/web-portal/public/index.html`, translate all UI labels, navigation tabs, metrics, table headers, forms, and descriptions from Portuguese to Spanish, and set `<html lang="es">`.
+- [x] In `services/web-portal/public/app.js`, translate UI dynamic strings, toast notifications, risk status messages, and receipt labels to Spanish, using Spanish locale formatting.
+- [x] Run `npm test` in `services/web-portal` and project `make test` to verify all tests pass.
+
+## Phase 3: Cloud Run Build Fix
+- [x] In `services/core-banking/internal/repository/memory.go`, remove the unused `"fmt"` package import to fix Go compilation failure during container image build.
