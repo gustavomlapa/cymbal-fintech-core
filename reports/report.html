@@ -1,0 +1,4238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CodeMender Security Report</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<style>
+  :root {
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+    --bg-page: #f8fafc;
+    --bg-card: #ffffff;
+    --border-card: #e2e8f0;
+    --border-subtle: #f1f5f9;
+    --text-main: #0f172a;
+    --text-muted: #475569;
+    --text-subtle: #94a3b8;
+
+    --crit-color: #b91c1c;
+    --crit-bg: #fef2f2;
+    --crit-border: #fecaca;
+    --crit-dot: #ef4444;
+
+    --high-color: #c2410c;
+    --high-bg: #fff7ed;
+    --high-border: #ffedd5;
+    --high-dot: #f97316;
+
+    --med-color: #b45309;
+    --med-bg: #fffbeb;
+    --med-border: #fef3c7;
+    --med-dot: #f59e0b;
+
+    --low-color: #1d4ed8;
+    --low-bg: #eff6ff;
+    --low-border: #dbeafe;
+    --low-dot: #3b82f6;
+
+    --status-open-color: #b91c1c;
+    --status-open-bg: #fef2f2;
+    --status-open-border: #fecaca;
+
+    --status-fixed-color: #15803d;
+    --status-fixed-bg: #f0fdf4;
+    --status-fixed-border: #bbf7d0;
+
+    --status-dismissed-color: #475569;
+    --status-dismissed-bg: #f1f5f9;
+    --status-dismissed-border: #e2e8f0;
+
+    --status-reopened-color: #6d28d9;
+    --status-reopened-bg: #f5f3ff;
+    --status-reopened-border: #ddd6fe;
+
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.06);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg-page);
+    color: var(--text-main);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container { max-width: 1280px; margin: 0 auto; padding: 24px 20px; }
+
+   
+  header {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: white;
+    padding: 24px 0;
+    box-shadow: var(--shadow-md);
+  }
+  header .container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  .header-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .brand-logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #3b82f6, #6366f1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+  }
+  .brand-logo svg {
+    width: 20px;
+    height: 20px;
+    fill: white;
+  }
+  .header-titles h1 {
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .header-titles .subtitle {
+    font-size: 0.85rem;
+    color: #94a3b8;
+  }
+  .header-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.82rem;
+    color: #cbd5e1;
+  }
+  .btn-print {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-print:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+
+   
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .metric-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    padding: 18px 20px;
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .metric-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--text-subtle);
+  }
+  .metric-card.active-filter {
+    outline: 2px solid #3b82f6;
+    outline-offset: -1px;
+  }
+  .metric-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .metric-label {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+  .metric-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+  }
+  .crit-badge { background: var(--crit-bg); color: var(--crit-color); border: 1px solid var(--crit-border); }
+  .high-badge { background: var(--high-bg); color: var(--high-color); border: 1px solid var(--high-border); }
+  .med-badge { background: var(--med-bg); color: var(--med-color); border: 1px solid var(--med-border); }
+  .low-badge { background: var(--low-bg); color: var(--low-color); border: 1px solid var(--low-border); }
+  .metric-value {
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    margin-bottom: 4px;
+  }
+  .metric-sub {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+  .metric-card.total .metric-value { color: var(--text-main); }
+  .metric-card.critical .metric-value { color: var(--crit-color); }
+  .metric-card.high .metric-value { color: var(--high-color); }
+  .metric-card.medium .metric-value { color: var(--med-color); }
+  .metric-card.low .metric-value { color: var(--low-color); }
+  .metric-card.fixed .metric-value { color: var(--status-fixed-color); }
+
+   
+  .toolbar-container {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    padding: 16px 20px;
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 24px;
+  }
+  .search-box {
+    position: relative;
+    margin-bottom: 14px;
+  }
+  .search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 18px;
+    fill: var(--text-subtle);
+    pointer-events: none;
+  }
+  .search-box input {
+    width: 100%;
+    padding: 10px 38px 10px 42px;
+    border: 1px solid var(--border-card);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    background: var(--bg-page);
+    color: var(--text-main);
+    transition: all 0.15s ease;
+  }
+  .search-box input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  }
+  .clear-btn {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    color: var(--text-subtle);
+    cursor: pointer;
+    line-height: 1;
+  }
+  .clear-btn:hover { color: var(--text-main); }
+  .filter-groups {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .filter-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+  .pill-filters {
+    display: inline-flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .pill-btn {
+    background: var(--bg-page);
+    border: 1px solid var(--border-card);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .pill-btn:hover {
+    background: white;
+    border-color: var(--text-subtle);
+    color: var(--text-main);
+  }
+  .pill-btn.active {
+    background: #0f172a;
+    border-color: #0f172a;
+    color: white;
+  }
+  .pill-btn.crit-btn.active { background: var(--crit-color); border-color: var(--crit-color); color: white; }
+  .pill-btn.high-btn.active { background: var(--high-color); border-color: var(--high-color); color: white; }
+  .pill-btn.med-btn.active { background: var(--med-color); border-color: var(--med-color); color: white; }
+  .pill-btn.low-btn.active { background: var(--low-color); border-color: var(--low-color); color: white; }
+  .pill-count {
+    background: rgba(0,0,0,0.08);
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-size: 0.72rem;
+  }
+  .pill-btn.active .pill-count {
+    background: rgba(255,255,255,0.25);
+  }
+  .toolbar-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .btn-secondary {
+    background: white;
+    border: 1px solid var(--border-card);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .btn-secondary:hover {
+    background: var(--bg-page);
+    color: var(--text-main);
+    border-color: var(--text-subtle);
+  }
+  .filter-status-bar {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-subtle);
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .link-btn {
+    background: none;
+    border: none;
+    color: #2563eb;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.82rem;
+    padding: 0;
+  }
+  .link-btn:hover { text-decoration: underline; }
+
+   
+  .section-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .section-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text-main);
+  }
+  .findings-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+   
+  .finding-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .finding-card:hover {
+    border-color: var(--text-subtle);
+    box-shadow: var(--shadow-md);
+  }
+  .finding-card-header {
+    padding: 16px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    background: white;
+    user-select: none;
+    gap: 16px;
+    flex-wrap: wrap;
+    transition: background-color 0.15s ease;
+  }
+  .finding-card-header:hover {
+    background: #f8fafc;
+  }
+  .card-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    flex: 1;
+  }
+  .card-header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .finding-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-main);
+    line-height: 1.4;
+  }
+
+   
+  .severity-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 3px 10px;
+    border-radius: 20px;
+    text-transform: uppercase;
+  }
+  .pill-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+  .pill-critical { background: var(--crit-bg); color: var(--crit-color); border: 1px solid var(--crit-border); }
+  .pill-critical .pill-dot { background: var(--crit-dot); }
+  .pill-high { background: var(--high-bg); color: var(--high-color); border: 1px solid var(--high-border); }
+  .pill-high .pill-dot { background: var(--high-dot); }
+  .pill-medium { background: var(--med-bg); color: var(--med-color); border: 1px solid var(--med-border); }
+  .pill-medium .pill-dot { background: var(--med-dot); }
+  .pill-low { background: var(--low-bg); color: var(--low-color); border: 1px solid var(--low-border); }
+  .pill-low .pill-dot { background: var(--low-dot); }
+
+  .status-pill {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    text-transform: uppercase;
+  }
+  .status-open { background: var(--status-open-bg); color: var(--status-open-color); border: 1px solid var(--status-open-border); }
+  .status-fixed { background: var(--status-fixed-bg); color: var(--status-fixed-color); border: 1px solid var(--status-fixed-border); }
+  .status-dismissed { background: var(--status-dismissed-bg); color: var(--status-dismissed-color); border: 1px solid var(--status-dismissed-border); }
+  .status-reopened { background: var(--status-reopened-bg); color: var(--status-reopened-color); border: 1px solid var(--status-reopened-border); }
+
+  .fix-pill {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: #f0fdf4;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+  }
+  .fix-pill.fix-pending {
+    background: #fffbeb;
+    color: #b45309;
+    border-color: #fde68a;
+  }
+
+  .short-id {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    padding: 2px 6px;
+    background: var(--bg-page);
+    border: 1px solid var(--border-card);
+    border-radius: 4px;
+    color: var(--text-muted);
+  }
+  .file-pill {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    padding: 3px 8px;
+    background: var(--bg-page);
+    border: 1px solid var(--border-card);
+    border-radius: 6px;
+    color: var(--text-muted);
+    max-width: 320px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .confidence-pill {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+  }
+  .chevron-btn {
+    background: none;
+    border: none;
+    color: var(--text-subtle);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border-radius: 4px;
+    transition: transform 0.2s ease, color 0.15s ease;
+  }
+  .chevron-btn:hover { color: var(--text-main); }
+  .chevron-icon {
+    width: 18px;
+    height: 18px;
+    transition: transform 0.2s ease;
+  }
+  .finding-card.collapsed .chevron-icon {
+    transform: rotate(-90deg);
+  }
+
+   
+  .finding-card-body {
+    padding: 0 20px 20px;
+    border-top: 1px solid var(--border-subtle);
+    background: white;
+  }
+  .finding-card.collapsed .finding-card-body {
+    display: none;
+  }
+
+   
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border-subtle);
+    margin-bottom: 18px;
+  }
+  .meta-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .meta-k {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-subtle);
+  }
+  .meta-v {
+    font-size: 0.85rem;
+    color: var(--text-main);
+    word-break: break-all;
+  }
+  .meta-v code {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    background: var(--bg-page);
+    padding: 2px 5px;
+    border-radius: 4px;
+    border: 1px solid var(--border-card);
+  }
+
+   
+  .finding-section {
+    margin-bottom: 20px;
+  }
+  .section-heading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin-bottom: 10px;
+  }
+  .heading-icon {
+    width: 16px;
+    height: 16px;
+    fill: #64748b;
+  }
+
+   
+  .analysis-content {
+    background: #f8fafc;
+    border: 1px solid var(--border-card);
+    border-radius: 8px;
+    padding: 16px;
+    font-size: 0.88rem;
+    line-height: 1.65;
+    color: #334155;
+  }
+  .analysis-content p { margin-bottom: 10px; }
+  .analysis-content p:last-child { margin-bottom: 0; }
+  .analysis-content ul, .analysis-content ol { margin: 10px 0 10px 20px; }
+  .analysis-content li { margin-bottom: 4px; }
+  .analysis-content code {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    background: #f1f5f9;
+    color: #0f172a;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid #e2e8f0;
+  }
+  .analysis-content pre {
+    background: #1e293b;
+    color: #e2e8f0;
+    padding: 12px;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin: 10px 0;
+  }
+  .analysis-content pre code {
+    background: transparent;
+    color: inherit;
+    border: none;
+    padding: 0;
+  }
+
+   
+  .code-container {
+    border: 1px solid #334155;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #1e1e1e;
+  }
+  .snippet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #2d3748;
+    color: #cbd5e1;
+    padding: 8px 14px;
+    font-size: 0.78rem;
+    font-family: var(--font-mono);
+    border-bottom: 1px solid #4a5568;
+  }
+  .snippet-wrap {
+    display: flex;
+    background: #1e1e1e;
+    overflow-x: auto;
+    font-size: 0.84rem;
+  }
+  .snippet-gutter {
+    padding: 12px 0;
+    color: #64748b;
+    user-select: none;
+    text-align: right;
+    border-right: 1px solid #334155;
+    flex-shrink: 0;
+    white-space: pre;
+    line-height: 1.5;
+    padding-left: 14px;
+    padding-right: 10px;
+    font-family: var(--font-mono);
+  }
+  .snippet-wrap pre {
+    flex: 1;
+    margin: 0;
+    background: transparent;
+  }
+  .snippet-wrap pre code {
+    display: block;
+    padding: 12px 14px;
+    font-family: var(--font-mono);
+    line-height: 1.5;
+  }
+
+   
+  .copy-btn {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e2e8f0;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 0.72rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.15s ease;
+  }
+  .copy-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+  }
+  .copy-icon {
+    width: 13px;
+    height: 13px;
+    fill: currentColor;
+  }
+
+   
+  .patch-card {
+    border: 1px solid var(--border-card);
+    border-radius: 8px;
+    padding: 14px;
+    background: #f8fafc;
+    margin-bottom: 12px;
+  }
+  .patch-card:last-child { margin-bottom: 0; }
+  .patch-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+  .patch-id-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: white;
+    border: 1px solid var(--border-card);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+  }
+  .patch-label {
+    font-weight: 700;
+    color: var(--text-muted);
+  }
+  .patch-id-pill code { font-family: var(--font-mono); color: var(--text-main); font-weight: 600; }
+  .patch-file, .patch-backup {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+  .patch-file code, .patch-backup code {
+    font-family: var(--font-mono);
+    color: var(--text-main);
+  }
+  .patch-reasoning {
+    font-size: 0.84rem;
+    color: #334155;
+    background: white;
+    border-left: 3px solid #10b981;
+    padding: 8px 12px;
+    border-radius: 0 4px 4px 0;
+    margin: 8px 0 12px;
+  }
+
+   
+  .diff-container {
+    border: 1px solid var(--border-card);
+    border-radius: 6px;
+    overflow: hidden;
+    background: white;
+  }
+  .diff-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f1f5f9;
+    border-bottom: 1px solid var(--border-card);
+    padding: 6px 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+  .diff-header .copy-btn {
+    background: white;
+    color: var(--text-muted);
+    border-color: var(--border-card);
+  }
+  .diff-header .copy-btn:hover {
+    background: var(--bg-page);
+    color: var(--text-main);
+  }
+  .diff-pre {
+    background: #fafbfc;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    overflow-x: auto;
+    margin: 0;
+    padding: 4px 0;
+  }
+  .diff-pre > div {
+    padding: 1px 12px;
+    white-space: pre;
+    line-height: 1.5;
+  }
+  .diff-hdr { background: #f1f5f9; color: #475569; font-weight: 700; border-bottom: 1px solid #e2e8f0; }
+  .diff-hunk { background: #f0f9ff; color: #0369a1; font-weight: 600; border-top: 1px solid #e0f2fe; border-bottom: 1px solid #e0f2fe; }
+  .diff-add { background: #f0fdf4; color: #15803d; border-left: 3px solid #22c55e; }
+  .diff-del { background: #fef2f2; color: #b91c1c; border-left: 3px solid #ef4444; }
+  .diff-ctx { color: #334155; border-left: 3px solid transparent; }
+
+   
+  .finding-action-bar {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-subtle);
+  }
+  .cli-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-page);
+    border: 1px solid var(--border-card);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+  }
+  .cli-hint-label { color: var(--text-muted); font-weight: 600; }
+  .cli-hint code { font-family: var(--font-mono); font-weight: 600; color: #0f172a; }
+  .copy-inline-btn {
+    background: none;
+    border: none;
+    color: var(--text-subtle);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    padding: 2px;
+  }
+  .copy-inline-btn:hover { color: var(--text-main); }
+
+   
+  .empty-state {
+    background: white;
+    border: 1px dashed var(--border-card);
+    border-radius: 12px;
+    padding: 48px 24px;
+    text-align: center;
+    color: var(--text-muted);
+  }
+  .empty-icon { font-size: 2.5rem; margin-bottom: 12px; }
+  .empty-title { font-size: 1.1rem; font-weight: 700; color: var(--text-main); margin-bottom: 6px; }
+  .empty-desc { font-size: 0.88rem; max-width: 480px; margin: 0 auto; }
+
+   
+  .sessions-section {
+    background: white;
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+    margin-top: 32px;
+    overflow: hidden;
+  }
+  .sessions-details summary {
+    padding: 16px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+    font-weight: 700;
+    color: var(--text-main);
+    background: #f8fafc;
+    border-bottom: 1px solid transparent;
+  }
+  .sessions-details[open] summary {
+    border-bottom-color: var(--border-card);
+  }
+  .summary-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sessions-count {
+    background: #e2e8f0;
+    color: #475569;
+    font-size: 0.72rem;
+    padding: 2px 7px;
+    border-radius: 10px;
+  }
+  .table-responsive {
+    overflow-x: auto;
+  }
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    text-align: left;
+  }
+  .data-table th {
+    background: #f8fafc;
+    padding: 10px 16px;
+    font-weight: 600;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-card);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .data-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-subtle);
+    color: var(--text-main);
+  }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover { background: #f8fafc; }
+  .data-table code { font-family: var(--font-mono); font-size: 0.8rem; }
+  .badge-type, .badge-mode {
+    background: #f1f5f9;
+    color: #475569;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .badge-status {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .target-path {
+    max-width: 250px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-block;
+  }
+  .time-cell { color: var(--text-muted); font-size: 0.8rem; white-space: nowrap; }
+
+   
+  footer {
+    text-align: center;
+    padding: 32px 20px;
+    font-size: 0.8rem;
+    color: var(--text-subtle);
+  }
+  footer a { color: #3b82f6; text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+   
+  @media print {
+    body { background: white; color: black; }
+    header { background: #0f172a !important; color: white !important; -webkit-print-color-adjust: exact; }
+    .toolbar-container, .btn-print, .chevron-btn, .copy-btn, .copy-inline-btn, .finding-action-bar { display: none !important; }
+    .finding-card { break-inside: avoid; border: 1px solid #ccc !important; box-shadow: none !important; margin-bottom: 16px; }
+    .finding-card.collapsed .finding-card-body { display: block !important; }
+    .metric-card { border: 1px solid #ccc !important; box-shadow: none !important; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="container">
+    <div class="header-brand">
+      <div class="brand-logo">
+        <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
+      </div>
+      <div class="header-titles">
+        <h1>CodeMender Security Report</h1>
+        <div class="subtitle">Automated Vulnerability Detection & Remediation</div>
+      </div>
+    </div>
+    <div class="header-meta">
+      <span>🕒 2026-09-30 19:08:26 UTC</span>
+      <button class="btn-print" onclick="window.print()">
+        <svg style="width:14px;height:14px;fill:currentColor;" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clip-rule="evenodd"/></svg>
+        Print / PDF
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  
+  <div class="metrics-grid">
+    <div class="metric-card total" onclick="setSeverityFilter('ALL'); setStatusFilter('ALL')" title="Click to view all findings">
+      <div class="metric-header">
+        <span class="metric-label">Total Findings</span>
+        <span style="font-size:1.1rem;">🛡️</span>
+      </div>
+      <div class="metric-value">20</div>
+      <div class="metric-sub">Total vulnerabilities detected</div>
+    </div>
+    <div class="metric-card critical" onclick="setSeverityFilter('CRITICAL')" title="Click to filter Critical findings">
+      <div class="metric-header">
+        <span class="metric-label">Critical</span>
+        <span class="metric-badge crit-badge">P0</span>
+      </div>
+      <div class="metric-value">2</div>
+      <div class="metric-sub">Immediate action required</div>
+    </div>
+    <div class="metric-card high" onclick="setSeverityFilter('HIGH')" title="Click to filter High findings">
+      <div class="metric-header">
+        <span class="metric-label">High</span>
+        <span class="metric-badge high-badge">P1</span>
+      </div>
+      <div class="metric-value">18</div>
+      <div class="metric-sub">Elevated security risk</div>
+    </div>
+    <div class="metric-card medium" onclick="setSeverityFilter('MEDIUM')" title="Click to filter Medium findings">
+      <div class="metric-header">
+        <span class="metric-label">Medium</span>
+        <span class="metric-badge med-badge">P2</span>
+      </div>
+      <div class="metric-value">0</div>
+      <div class="metric-sub">Moderate impact</div>
+    </div>
+    <div class="metric-card low" onclick="setSeverityFilter('LOW')" title="Click to filter Low findings">
+      <div class="metric-header">
+        <span class="metric-label">Low</span>
+        <span class="metric-badge low-badge">P3</span>
+      </div>
+      <div class="metric-value">0</div>
+      <div class="metric-sub">Informational & minor risks</div>
+    </div>
+    <div class="metric-card fixed" onclick="setStatusFilter('FIXED')" title="Click to filter Remediated findings">
+      <div class="metric-header">
+        <span class="metric-label">Remediated</span>
+        <span style="font-size:1.1rem;">✅</span>
+      </div>
+      <div class="metric-value">0</div>
+      <div class="metric-sub">0% resolved</div>
+    </div>
+  </div>
+
+  
+  <div class="toolbar-container">
+    <div class="search-box">
+      <svg class="search-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
+      <input type="text" id="searchInput" placeholder="Search findings by ID, title, file path, vulnerability type, or analysis..." oninput="applyFilters()">
+      <button id="clearSearch" class="clear-btn" onclick="clearSearchInput()" style="display:none;">&times;</button>
+    </div>
+    <div class="filter-groups">
+      <div class="filter-group">
+        <span class="filter-label">Severity:</span>
+        <div class="pill-filters" id="severityFilters">
+          <button class="pill-btn active" data-severity="ALL" onclick="setSeverityFilter('ALL')">All <span class="pill-count">20</span></button>
+          <button class="pill-btn crit-btn" data-severity="CRITICAL" onclick="setSeverityFilter('CRITICAL')">Critical <span class="pill-count">2</span></button>
+          <button class="pill-btn high-btn" data-severity="HIGH" onclick="setSeverityFilter('HIGH')">High <span class="pill-count">18</span></button>
+          
+          
+        </div>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Status:</span>
+        <div class="pill-filters" id="statusFilters">
+          <button class="pill-btn active" data-status="ALL" onclick="setStatusFilter('ALL')">All</button>
+          <button class="pill-btn" data-status="OPEN" onclick="setStatusFilter('OPEN')">Open</button>
+          <button class="pill-btn" data-status="FIXED" onclick="setStatusFilter('FIXED')">Fixed</button>
+          <button class="pill-btn" data-status="DISMISSED" onclick="setStatusFilter('DISMISSED')">Dismissed</button>
+        </div>
+      </div>
+      <div class="toolbar-actions">
+        <button class="btn-secondary" onclick="expandAllCards()">Expand All</button>
+        <button class="btn-secondary" onclick="collapseAllCards()">Collapse All</button>
+      </div>
+    </div>
+    <div class="filter-status-bar" id="filterStatusBar" style="display:none;">
+      <span id="filterStatusText">Showing 0 of 0 findings</span>
+      <button class="link-btn" onclick="resetAllFilters()">Reset all filters</button>
+    </div>
+  </div>
+
+  
+  <div class="section-header-row">
+    <h2 class="section-title">Vulnerability Findings (20)</h2>
+  </div>
+
+  
+  <div class="findings-list" id="findingsList">
+    
+    <article class="finding-card" data-severity="CRITICAL" data-status="OPEN">
+      <div class="finding-card-header" onclick="toggleCard(this)">
+        <div class="card-header-left">
+          <span class="severity-pill pill-critical">
+            <span class="pill-dot"></span>
+            CRITICAL
+          </span>
+          <span class="status-pill status-open">OPEN</span>
+          
+          <h3 class="finding-title">Remote Code Execution via Function Constructor in Custom Rate Formula Evaluation</h3>
+        </div>
+        <div class="card-header-right">
+          <code class="short-id">9585dea3</code>
+          <span class="file-pill" title="services/credit-service/src/services/contract_engine.js">📄 services/credit-service/src/services/contract_engine.js:L59–61</span>
+          
+            <span class="confidence-pill" title="Detection Confidence">100% conf</span>
+          
+          <button class="chevron-btn" aria-label="Toggle details">
+            <svg class="chevron-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="finding-card-body">
+        
+        <div class="meta-grid">
+          <div class="meta-cell">
+            <span class="meta-k">Finding ID</span>
+            <span class="meta-v"><code>9585dea3-2e71-4c7d-8c3c-b9610d0ff025</code></span>
+          </div>
+          <div class="meta-cell">
+            <span class="meta-k">File Path</span>
+            <span class="meta-v"><code>services/credit-service/src/services/contract_engine.js</code></span>
+          </div>
+          
+          <div class="meta-cell">
+            <span class="meta-k">Line Range</span>
+            <span class="meta-v">Lines 59 – 61</span>
+          </div>
+          
+          
+          <div class="meta-cell">
+            <span class="meta-k">Vulnerability ID / CWE</span>
+            <span class="meta-v"><code>CWE-94</code> (CODE INJECTION)</span>
+          </div>
+          
+          
+        </div>
+
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+            Security Analysis & Impact
+          </div>
+          <div class="analysis-content">
+            <p>Data Path Analysis:</p>
+<ul>
+<li>Source: In <code>services/credit-service/src/index.js</code>, the endpoint <code>POST /api/v1/credit/proposals/:id/evaluate-formula</code> parses incoming JSON payload without authentication and extracts <code>body.formula</code>.</li>
+<li>Sanitization/Validation: <code>evaluateCustomRateFormula</code> only verifies <code>if (!formula || typeof formula !== 'string')</code>. There is no sandboxing, AST parsing, or whitelist of allowable mathematical operations.</li>
+<li>Sink: At line 60 of <code>contract_engine.js</code>, the untrusted string is interpolated directly into <code>new Function('amount', 'term', 'score', </code>return (${formula});<code>)</code> and immediately invoked.</li>
+</ul>
+<p>Conceptual Exploit Payload:
+Send an HTTP POST request to evaluate a custom formula containing arbitrary Node.js code execution:</p>
+<pre><code class="language-http">POST /api/v1/credit/proposals/prop_101/evaluate-formula HTTP/1.1
+Host: localhost:8084
+Content-Type: application/json
+
+{
+  &quot;formula&quot;: &quot;process.mainModule.require('child_process').execSync('id').toString()&quot;,
+  &quot;context&quot;: {
+    &quot;amount&quot;: 1000,
+    &quot;term&quot;: 12,
+    &quot;score&quot;: 750
+  }
+}
+</code></pre>
+<p>The constructor runs the injected JavaScript in the current process context, leading to Remote Code Execution (RCE).</p>
+
+          </div>
+        </div>
+
+        
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+            Vulnerable Code Snippet
+          </div>
+          <div class="code-container">
+            <div class="snippet-header">
+              <span>📄 services/credit-service/src/services/contract_engine.js : L59–61</span>
+              <button class="copy-btn" onclick="copySnippet(this)">
+                <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+                <span>Copy Code</span>
+              </button>
+            </div>
+            <div class="snippet-wrap">
+              <div class="snippet-gutter">59
+60
+61
+</div>
+              <pre><code class="language-javascript">      // Dynamic evaluation sink: allows arbitrary JS expression execution
+      const evalFunc = new Function(&#39;amount&#39;, &#39;term&#39;, &#39;score&#39;, `return (${formula});`);
+      return evalFunc(context.amount || 0, context.term || 0, context.score || 0);</code></pre>
+            </div>
+          </div>
+        </div>
+        
+
+        
+        
+
+        
+        <div class="finding-action-bar">
+          <div class="cli-hint">
+            <span class="cli-hint-label">Remediate with CLI:</span>
+            <code>cm fix 9585dea3-2e71-4c7d-8c3c-b9610d0ff025</code>
+            <button class="copy-inline-btn" onclick="copyText('cm fix 9585dea3-2e71-4c7d-8c3c-b9610d0ff025', this)" title="Copy command">
+              <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+    
+    <article class="finding-card" data-severity="CRITICAL" data-status="OPEN">
+      <div class="finding-card-header" onclick="toggleCard(this)">
+        <div class="card-header-left">
+          <span class="severity-pill pill-critical">
+            <span class="pill-dot"></span>
+            CRITICAL
+          </span>
+          <span class="status-pill status-open">OPEN</span>
+          
+          <h3 class="finding-title">Remote Code Execution via Function Constructor in Custom Rate Formula Evaluation</h3>
+        </div>
+        <div class="card-header-right">
+          <code class="short-id">e032100e</code>
+          <span class="file-pill" title="services/credit-service/src/services/contract_engine.js">📄 services/credit-service/src/services/contract_engine.js:L59–61</span>
+          
+            <span class="confidence-pill" title="Detection Confidence">100% conf</span>
+          
+          <button class="chevron-btn" aria-label="Toggle details">
+            <svg class="chevron-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="finding-card-body">
+        
+        <div class="meta-grid">
+          <div class="meta-cell">
+            <span class="meta-k">Finding ID</span>
+            <span class="meta-v"><code>e032100e-9a7b-5503-a459-ec8c12622c93</code></span>
+          </div>
+          <div class="meta-cell">
+            <span class="meta-k">File Path</span>
+            <span class="meta-v"><code>services/credit-service/src/services/contract_engine.js</code></span>
+          </div>
+          
+          <div class="meta-cell">
+            <span class="meta-k">Line Range</span>
+            <span class="meta-v">Lines 59 – 61</span>
+          </div>
+          
+          
+          <div class="meta-cell">
+            <span class="meta-k">Vulnerability ID / CWE</span>
+            <span class="meta-v"><code>CWE-94</code> (Code Injection)</span>
+          </div>
+          
+          
+        </div>
+
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+            Security Analysis & Impact
+          </div>
+          <div class="analysis-content">
+            <p>Data Path Analysis:</p>
+<ul>
+<li>Source: In <code>services/credit-service/src/index.js</code>, the endpoint <code>POST /api/v1/credit/proposals/:id/evaluate-formula</code> parses incoming JSON payload without authentication and extracts <code>body.formula</code>.</li>
+<li>Sanitization/Validation: <code>evaluateCustomRateFormula</code> only verifies <code>if (!formula || typeof formula !== 'string')</code>. There is no sandboxing, AST parsing, or whitelist of allowable mathematical operations.</li>
+<li>Sink: At line 60 of <code>contract_engine.js</code>, the untrusted string is interpolated directly into <code>new Function('amount', 'term', 'score', </code>return (${formula});<code>)</code> and immediately invoked.</li>
+</ul>
+<p>Conceptual Exploit Payload:
+Send an HTTP POST request to evaluate a custom formula containing arbitrary Node.js code execution:</p>
+<pre><code class="language-http">POST /api/v1/credit/proposals/prop_101/evaluate-formula HTTP/1.1
+Host: localhost:8084
+Content-Type: application/json
+
+{
+  &quot;formula&quot;: &quot;process.mainModule.require('child_process').execSync('id').toString()&quot;,
+  &quot;context&quot;: {
+    &quot;amount&quot;: 1000,
+    &quot;term&quot;: 12,
+    &quot;score&quot;: 750
+  }
+}
+</code></pre>
+<p>The constructor runs the injected JavaScript in the current process context, leading to Remote Code Execution (RCE).</p>
+
+          </div>
+        </div>
+
+        
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+            Vulnerable Code Snippet
+          </div>
+          <div class="code-container">
+            <div class="snippet-header">
+              <span>📄 services/credit-service/src/services/contract_engine.js : L59–61</span>
+              <button class="copy-btn" onclick="copySnippet(this)">
+                <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+                <span>Copy Code</span>
+              </button>
+            </div>
+            <div class="snippet-wrap">
+              <div class="snippet-gutter">59
+60
+61
+</div>
+              <pre><code class="language-javascript">      // Dynamic evaluation sink: allows arbitrary JS expression execution
+      const evalFunc = new Function(&#39;amount&#39;, &#39;term&#39;, &#39;score&#39;, `return (${formula});`);
+      return evalFunc(context.amount || 0, context.term || 0, context.score || 0);</code></pre>
+            </div>
+          </div>
+        </div>
+        
+
+        
+        
+
+        
+        <div class="finding-action-bar">
+          <div class="cli-hint">
+            <span class="cli-hint-label">Remediate with CLI:</span>
+            <code>cm fix e032100e-9a7b-5503-a459-ec8c12622c93</code>
+            <button class="copy-inline-btn" onclick="copyText('cm fix e032100e-9a7b-5503-a459-ec8c12622c93', this)" title="Copy command">
+              <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+    
+    <article class="finding-card" data-severity="HIGH" data-status="OPEN">
+      <div class="finding-card-header" onclick="toggleCard(this)">
+        <div class="card-header-left">
+          <span class="severity-pill pill-high">
+            <span class="pill-dot"></span>
+            HIGH
+          </span>
+          <span class="status-pill status-open">OPEN</span>
+          
+          <h3 class="finding-title">Prototype Pollution via Unsanitized Object Key Recursion in deepMerge</h3>
+        </div>
+        <div class="card-header-right">
+          <code class="short-id">19ba3d67</code>
+          <span class="file-pill" title="services/identity-service/src/utils/merge.js">📄 services/identity-service/src/utils/merge.js:L10–20</span>
+          
+            <span class="confidence-pill" title="Detection Confidence">100% conf</span>
+          
+          <button class="chevron-btn" aria-label="Toggle details">
+            <svg class="chevron-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="finding-card-body">
+        
+        <div class="meta-grid">
+          <div class="meta-cell">
+            <span class="meta-k">Finding ID</span>
+            <span class="meta-v"><code>19ba3d67-7ff3-48f6-bbe8-65b9c3ae5200</code></span>
+          </div>
+          <div class="meta-cell">
+            <span class="meta-k">File Path</span>
+            <span class="meta-v"><code>services/identity-service/src/utils/merge.js</code></span>
+          </div>
+          
+          <div class="meta-cell">
+            <span class="meta-k">Line Range</span>
+            <span class="meta-v">Lines 10 – 20</span>
+          </div>
+          
+          
+          <div class="meta-cell">
+            <span class="meta-k">Vulnerability ID / CWE</span>
+            <span class="meta-v"><code>CWE-1321</code> (PROTOTYPE POLLUTION)</span>
+          </div>
+          
+          
+        </div>
+
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+            Security Analysis & Impact
+          </div>
+          <div class="analysis-content">
+            <p>Data Path Analysis:</p>
+<ul>
+<li>Source: In <code>services/identity-service/src/index.js</code>, the endpoint <code>PATCH /api/v1/customers/:id/profile</code> receives untrusted JSON updates from the request body and forwards them to <code>customerStore.updateProfile(customerId, body)</code>.</li>
+<li>Sanitization/Validation: <code>deepMerge</code> does not filter dangerous keys such as <code>__proto__</code>, <code>constructor</code>, or <code>prototype</code>.</li>
+<li>Sink: When <code>key</code> is <code>&quot;__proto__&quot;</code>, accessing <code>target[key]</code> evaluates to <code>Object.prototype</code>. The recursive call <code>deepMerge(target[key], val)</code> then assigns properties directly onto <code>Object.prototype</code> at line 18 (<code>target[key] = val</code>), polluting global prototype properties across the Node.js runtime.</li>
+</ul>
+<p>Conceptual Exploit Payload:
+Send an HTTP PATCH request with a crafted JSON payload targeting <code>__proto__</code>:</p>
+<pre><code class="language-http">PATCH /api/v1/customers/cust_001/profile HTTP/1.1
+Host: localhost:8082
+Content-Type: application/json
+
+{
+  &quot;__proto__&quot;: {
+    &quot;polluted&quot;: true,
+    &quot;isAdmin&quot;: true
+  }
+}
+</code></pre>
+<p>Following this request, <code>({}).polluted === true</code> and <code>({}).isAdmin === true</code> in the application environment, allowing authorization bypass, denial of service, or further exploitation.</p>
+
+          </div>
+        </div>
+
+        
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+            Vulnerable Code Snippet
+          </div>
+          <div class="code-container">
+            <div class="snippet-header">
+              <span>📄 services/identity-service/src/utils/merge.js : L10–20</span>
+              <button class="copy-btn" onclick="copySnippet(this)">
+                <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+                <span>Copy Code</span>
+              </button>
+            </div>
+            <div class="snippet-wrap">
+              <div class="snippet-gutter">10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+</div>
+              <pre><code class="language-javascript">  for (const key of Object.keys(source)) {
+    const val = source[key];
+    if (val &amp;&amp; typeof val === &#39;object&#39; &amp;&amp; !Array.isArray(val)) {
+      if (!target[key] || typeof target[key] !== &#39;object&#39;) {
+        target[key] = {};
+      }
+      deepMerge(target[key], val);
+    } else {
+      target[key] = val;
+    }
+  }</code></pre>
+            </div>
+          </div>
+        </div>
+        
+
+        
+        
+
+        
+        <div class="finding-action-bar">
+          <div class="cli-hint">
+            <span class="cli-hint-label">Remediate with CLI:</span>
+            <code>cm fix 19ba3d67-7ff3-48f6-bbe8-65b9c3ae5200</code>
+            <button class="copy-inline-btn" onclick="copyText('cm fix 19ba3d67-7ff3-48f6-bbe8-65b9c3ae5200', this)" title="Copy command">
+              <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+    
+    <article class="finding-card" data-severity="HIGH" data-status="OPEN">
+      <div class="finding-card-header" onclick="toggleCard(this)">
+        <div class="card-header-left">
+          <span class="severity-pill pill-high">
+            <span class="pill-dot"></span>
+            HIGH
+          </span>
+          <span class="status-pill status-open">OPEN</span>
+          
+          <h3 class="finding-title">JWT Key Confusion / Algorithm Confusion Vulnerability (RS256 to HS256)</h3>
+        </div>
+        <div class="card-header-right">
+          <code class="short-id">e4ade1e4</code>
+          <span class="file-pill" title="services/identity-service/src/services/jwt_service.js">📄 services/identity-service/src/services/jwt_service.js:L63–70</span>
+          
+            <span class="confidence-pill" title="Detection Confidence">95% conf</span>
+          
+          <button class="chevron-btn" aria-label="Toggle details">
+            <svg class="chevron-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="finding-card-body">
+        
+        <div class="meta-grid">
+          <div class="meta-cell">
+            <span class="meta-k">Finding ID</span>
+            <span class="meta-v"><code>e4ade1e4-2756-4f35-8271-d79a5ea1148e</code></span>
+          </div>
+          <div class="meta-cell">
+            <span class="meta-k">File Path</span>
+            <span class="meta-v"><code>services/identity-service/src/services/jwt_service.js</code></span>
+          </div>
+          
+          <div class="meta-cell">
+            <span class="meta-k">Line Range</span>
+            <span class="meta-v">Lines 63 – 70</span>
+          </div>
+          
+          
+          <div class="meta-cell">
+            <span class="meta-k">Vulnerability ID / CWE</span>
+            <span class="meta-v"><code>CWE-347</code> (IMPROPER VERIFICATION OF CRYPTOGRAPHIC SIGNATURE)</span>
+          </div>
+          
+          
+        </div>
+
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+            Security Analysis & Impact
+          </div>
+          <div class="analysis-content">
+            <p>Data Path Analysis:</p>
+<ul>
+<li>Source: Route <code>POST /api/v1/auth/verify</code> receives <code>body.token</code> from untrusted client HTTP requests and passes it to <code>jwtService.verifyToken(body.token)</code>.</li>
+<li>Sanitization/Validation: <code>verifyToken</code> decodes <code>header.alg</code> directly from the untrusted token without enforcing an expected algorithm whitelist or restricting tokens to asymmetric RS256 signatures.</li>
+<li>Sink: At lines 63-70, if <code>header.alg === 'HS256'</code>, the service verifies the token using <code>crypto.createHmac('sha256', this.publicKeyPEM)</code>, treating the public RSA PEM key string as the HMAC secret key. An attacker who obtains or knows the public key can craft and sign arbitrary tokens with HS256, forging any claims/roles (e.g. elevating privileges to enterprise admin) that pass signature verification.</li>
+</ul>
+<p>Conceptual Exploit Payload:</p>
+<ol>
+<li>Construct a header with <code>&quot;alg&quot;: &quot;HS256&quot;</code>, <code>&quot;typ&quot;: &quot;JWT&quot;</code>.</li>
+<li>Construct payload with arbitrary claims:</li>
+</ol>
+<pre><code class="language-json">{
+  &quot;sub&quot;: &quot;cust_001&quot;,
+  &quot;name&quot;: &quot;Attacker&quot;,
+  &quot;tier&quot;: &quot;TIER_ENTERPRISE&quot;,
+  &quot;role&quot;: &quot;admin&quot;,
+  &quot;exp&quot;: 1999999999
+}
+</code></pre>
+<ol start="3">
+<li>Sign <code>base64url(header) + &quot;.&quot; + base64url(payload)</code> using HMAC-SHA256 with the server's public key string as the HMAC key.</li>
+<li>Send verification request:</li>
+</ol>
+<pre><code class="language-http">POST /api/v1/auth/verify HTTP/1.1
+Host: localhost:8082
+Content-Type: application/json
+
+{
+  &quot;token&quot;: &quot;eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.&lt;base64url_payload&gt;.&lt;forged_hmac_signature&gt;&quot;
+}
+</code></pre>
+
+          </div>
+        </div>
+
+        
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+            Vulnerable Code Snippet
+          </div>
+          <div class="code-container">
+            <div class="snippet-header">
+              <span>📄 services/identity-service/src/services/jwt_service.js : L63–70</span>
+              <button class="copy-btn" onclick="copySnippet(this)">
+                <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+                <span>Copy Code</span>
+              </button>
+            </div>
+            <div class="snippet-wrap">
+              <div class="snippet-gutter">63
+64
+65
+66
+67
+68
+69
+70
+71
+</div>
+              <pre><code class="language-javascript">    if (header.alg === &#39;HS256&#39;) {
+      // Key confusion flaw: uses public key string as HMAC secret key
+      const hmac = crypto.createHmac(&#39;sha256&#39;, this.publicKeyPEM);
+      hmac.update(dataToSign);
+      const computedSig = hmac.digest(&#39;base64url&#39;);
+      if (computedSig !== signature) {
+        throw new Error(&#39;Invalid HMAC signature&#39;);
+      }
+    }</code></pre>
+            </div>
+          </div>
+        </div>
+        
+
+        
+        
+
+        
+        <div class="finding-action-bar">
+          <div class="cli-hint">
+            <span class="cli-hint-label">Remediate with CLI:</span>
+            <code>cm fix e4ade1e4-2756-4f35-8271-d79a5ea1148e</code>
+            <button class="copy-inline-btn" onclick="copyText('cm fix e4ade1e4-2756-4f35-8271-d79a5ea1148e', this)" title="Copy command">
+              <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+    
+    <article class="finding-card" data-severity="HIGH" data-status="OPEN">
+      <div class="finding-card-header" onclick="toggleCard(this)">
+        <div class="card-header-left">
+          <span class="severity-pill pill-high">
+            <span class="pill-dot"></span>
+            HIGH
+          </span>
+          <span class="status-pill status-open">OPEN</span>
+          
+          <h3 class="finding-title">Concurrency Race Condition (TOCTOU) Allowing Double-Spending in Account Debit</h3>
+        </div>
+        <div class="card-header-right">
+          <code class="short-id">d9c20085</code>
+          <span class="file-pill" title="services/core-banking/internal/service/banking.go">📄 services/core-banking/internal/service/banking.go:L96–111</span>
+          
+            <span class="confidence-pill" title="Detection Confidence">100% conf</span>
+          
+          <button class="chevron-btn" aria-label="Toggle details">
+            <svg class="chevron-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="finding-card-body">
+        
+        <div class="meta-grid">
+          <div class="meta-cell">
+            <span class="meta-k">Finding ID</span>
+            <span class="meta-v"><code>d9c20085-eed3-4d71-b8dd-b860d3a7c30f</code></span>
+          </div>
+          <div class="meta-cell">
+            <span class="meta-k">File Path</span>
+            <span class="meta-v"><code>services/core-banking/internal/service/banking.go</code></span>
+          </div>
+          
+          <div class="meta-cell">
+            <span class="meta-k">Line Range</span>
+            <span class="meta-v">Lines 96 – 111</span>
+          </div>
+          
+          
+          <div class="meta-cell">
+            <span class="meta-k">Vulnerability ID / CWE</span>
+            <span class="meta-v"><code>CWE-362</code> (CONCURRENT EXECUTION USING SHARED RESOURCE WITH IMPROPER SYNCHRONIZATION)</span>
+          </div>
+          
+          
+        </div>
+
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+            Security Analysis & Impact
+          </div>
+          <div class="analysis-content">
+            <p>Data Path Analysis:</p>
+<ul>
+<li>Source: HTTP POST endpoint <code>/api/v1/accounts/debit</code> handled in <code>services/core-banking/internal/handler/http.go:HandleDebit</code> reads JSON input (<code>accountId</code>, <code>amount</code>, <code>description</code>, <code>referenceId</code>) and calls <code>bankingSvc.Debit()</code>.</li>
+<li>Sanitization/Validation: At lines 97-100, the method checks <code>if acc.Balance &lt; amount</code>. However, this read-and-check operation is performed without acquiring a mutex or performing an atomic database compare-and-swap / transaction isolation lock.</li>
+<li>Sink: At line 103, an artificial ledger delay <code>time.Sleep(15 * time.Millisecond)</code> occurs between reading the balance and updating it (<code>newBalance := acc.Balance - amount</code>, <code>s.repo.UpdateAccount(acc)</code>). Because Go's HTTP server handles each request in a concurrent goroutine, multiple requests sent in parallel can pass the liquidity check before any one request commits the deducted balance, causing double-spending and draining account balances beyond allowed limits.</li>
+</ul>
+<p>Conceptual Exploit Payload:
+Send two or more concurrent HTTP requests in parallel for an account with balance 1250.00:</p>
+<pre><code class="language-http">POST /api/v1/accounts/debit HTTP/1.1
+Host: localhost:8081
+Content-Type: application/json
+
+{
+  &quot;accountId&quot;: &quot;acc_1002&quot;,
+  &quot;amount&quot;: 1000.0,
+  &quot;description&quot;: &quot;Exploit Debit 1&quot;,
+  &quot;referenceId&quot;: &quot;ref_race_1&quot;
+}
+</code></pre>
+<p>and concurrently:</p>
+<pre><code class="language-http">POST /api/v1/accounts/debit HTTP/1.1
+Host: localhost:8081
+Content-Type: application/json
+
+{
+  &quot;accountId&quot;: &quot;acc_1002&quot;,
+  &quot;amount&quot;: 1000.0,
+  &quot;description&quot;: &quot;Exploit Debit 2&quot;,
+  &quot;referenceId&quot;: &quot;ref_race_2&quot;
+}
+</code></pre>
+<p>Both goroutines observe <code>acc.Balance == 1250.0 &gt;= 1000.0</code> during the 15ms window, and both proceed to debit, resulting in a total of 2000.0 debited from an account holding only 1250.0.</p>
+
+          </div>
+        </div>
+
+        
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+            Vulnerable Code Snippet
+          </div>
+          <div class="code-container">
+            <div class="snippet-header">
+              <span>📄 services/core-banking/internal/service/banking.go : L96–111</span>
+              <button class="copy-btn" onclick="copySnippet(this)">
+                <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+                <span>Copy Code</span>
+              </button>
+            </div>
+            <div class="snippet-wrap">
+              <div class="snippet-gutter">96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+</div>
+              <pre><code class="language-go">	// Liquidity check: verify sufficient available balance
+	if acc.Balance &lt; amount {
+		s.logger.Warn(&#34;insufficient funds for debit&#34;, &#34;accountId&#34;, accountID, &#34;balance&#34;, acc.Balance, &#34;requested&#34;, amount)
+		return nil, domain.ErrInsufficientBalance
+	}
+
+	// Simulate ledger rail verification delay
+	time.Sleep(15 * time.Millisecond)
+
+	// Update computed balance
+	newBalance := acc.Balance - amount
+	acc.Balance = newBalance
+
+	if err := s.repo.UpdateAccount(acc); err != nil {
+		return nil, err
+	}</code></pre>
+            </div>
+          </div>
+        </div>
+        
+
+        
+        
+
+        
+        <div class="finding-action-bar">
+          <div class="cli-hint">
+            <span class="cli-hint-label">Remediate with CLI:</span>
+            <code>cm fix d9c20085-eed3-4d71-b8dd-b860d3a7c30f</code>
+            <button class="copy-inline-btn" onclick="copyText('cm fix d9c20085-eed3-4d71-b8dd-b860d3a7c30f', this)" title="Copy command">
+              <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+    
+    <article class="finding-card" data-severity="HIGH" data-status="OPEN">
+      <div class="finding-card-header" onclick="toggleCard(this)">
+        <div class="card-header-left">
+          <span class="severity-pill pill-high">
+            <span class="pill-dot"></span>
+            HIGH
+          </span>
+          <span class="status-pill status-open">OPEN</span>
+          
+          <h3 class="finding-title">Broken Object Level Authorization (BOLA/IDOR) in Account Statement Generation</h3>
+        </div>
+        <div class="card-header-right">
+          <code class="short-id">51993c7c</code>
+          <span class="file-pill" title="services/core-banking/internal/service/banking.go">📄 services/core-banking/internal/service/banking.go:L135–149</span>
+          
+            <span class="confidence-pill" title="Detection Confidence">95% conf</span>
+          
+          <button class="chevron-btn" aria-label="Toggle details">
+            <svg class="chevron-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="finding-card-body">
+        
+        <div class="meta-grid">
+          <div class="meta-cell">
+            <span class="meta-k">Finding ID</span>
+            <span class="meta-v"><code>51993c7c-2bef-4bb9-98ae-a4bee4b07b84</code></span>
+          </div>
+          <div class="meta-cell">
+            <span class="meta-k">File Path</span>
+            <span class="meta-v"><code>services/core-banking/internal/service/banking.go</code></span>
+          </div>
+          
+          <div class="meta-cell">
+            <span class="meta-k">Line Range</span>
+            <span class="meta-v">Lines 135 – 149</span>
+          </div>
+          
+          
+          <div class="meta-cell">
+            <span class="meta-k">Vulnerability ID / CWE</span>
+            <span class="meta-v"><code>CWE-639</code> (AUTHORIZATION BYPASS THROUGH USER-CONTROLLED KEY)</span>
+          </div>
+          
+          
+        </div>
+
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+            Security Analysis & Impact
+          </div>
+          <div class="analysis-content">
+            <p>Data Path Analysis:</p>
+<ul>
+<li>Source: Route <code>GET /api/v1/accounts/{id}/statement</code> receives the target account ID from the URL path and tenant identity from the <code>X-Customer-ID</code> request header.</li>
+<li>Sanitization/Validation: Although <code>customerID</code> is extracted in <code>HandleGetStatement</code> and passed into <code>GetStatement(customerID, accountID)</code>, <code>GetStatement</code> never checks <code>acc.CustomerID == customerID</code>.</li>
+<li>Sink: The method queries the repository for the account (<code>s.repo.GetAccountByID(accountID)</code>) and returns all transaction entries and balances for that account. Additionally, <code>statementCache</code> uses a global key <code>fmt.Sprintf(&quot;stmt:%s&quot;, accountID)</code> completely lacking customer/tenant scoping. Any caller with access to the API can inspect statements and sensitive financial records belonging to any other customer/tenant.</li>
+</ul>
+<p>Conceptual Exploit Payload:
+An unprivileged user (<code>cust_001</code> or <code>cust_002</code>) sends a request for corporate account <code>acc_1003</code> (belonging to <code>cust_003</code>):</p>
+<pre><code class="language-http">GET /api/v1/accounts/acc_1003/statement HTTP/1.1
+Host: localhost:8081
+X-Customer-ID: cust_001
+</code></pre>
+<p>The server returns 200 OK with the full transaction ledger and account balance (1,500,000.00 BRL) belonging to <code>cust_003</code>.</p>
+
+          </div>
+        </div>
+
+        
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+            Vulnerable Code Snippet
+          </div>
+          <div class="code-container">
+            <div class="snippet-header">
+              <span>📄 services/core-banking/internal/service/banking.go : L135–149</span>
+              <button class="copy-btn" onclick="copySnippet(this)">
+                <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+                <span>Copy Code</span>
+              </button>
+            </div>
+            <div class="snippet-wrap">
+              <div class="snippet-gutter">135
+136
+137
+138
+139
+140
+141
+142
+143
+144
+145
+146
+147
+148
+149
+</div>
+              <pre><code class="language-go">func (s *BankingService) GetStatement(customerID, accountID string) (*domain.Statement, error) {
+	cacheKey := fmt.Sprintf(&#34;stmt:%s&#34;, accountID)
+
+	s.cacheMu.RLock()
+	cached, found := s.statementCache[cacheKey]
+	s.cacheMu.RUnlock()
+	if found {
+		s.logger.Debug(&#34;serving statement from cache&#34;, &#34;cacheKey&#34;, cacheKey)
+		return cached, nil
+	}
+
+	acc, err := s.repo.GetAccountByID(accountID)
+	if err != nil {
+		return nil, err
+	}</code></pre>
+            </div>
+          </div>
+        </div>
+        
+
+        
+        
+
+        
+        <div class="finding-action-bar">
+          <div class="cli-hint">
+            <span class="cli-hint-label">Remediate with CLI:</span>
+            <code>cm fix 51993c7c-2bef-4bb9-98ae-a4bee4b07b84</code>
+            <button class="copy-inline-btn" onclick="copyText('cm fix 51993c7c-2bef-4bb9-98ae-a4bee4b07b84', this)" title="Copy command">
+              <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+    
+    <article class="finding-card" data-severity="HIGH" data-status="OPEN">
+      <div class="finding-card-header" onclick="toggleCard(this)">
+        <div class="card-header-left">
+          <span class="severity-pill pill-high">
+            <span class="pill-dot"></span>
+            HIGH
+          </span>
+          <span class="status-pill status-open">OPEN</span>
+          
+          <h3 class="finding-title">Missing State Machine Transition Guard in Credit Proposal Lifecycle</h3>
+        </div>
+        <div class="card-header-right">
+          <code class="short-id">416853b7</code>
+          <span class="file-pill" title="services/credit-service/src/services/proposal_store.js">📄 services/credit-service/src/services/proposal_store.js:L114–127</span>
+          
+            <span class="confidence-pill" title="Detection Confidence">95% conf</span>
+          
+          <button class="chevron-btn" aria-label="Toggle details">
+            <svg class="chevron-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="finding-card-body">
+        
+        <div class="meta-grid">
+          <div class="meta-cell">
+            <span class="meta-k">Finding ID</span>
+            <span class="meta-v"><code>416853b7-0a53-437a-954d-c598e8272ebb</code></span>
+          </div>
+          <div class="meta-cell">
+            <span class="meta-k">File Path</span>
+            <span class="meta-v"><code>services/credit-service/src/services/proposal_store.js</code></span>
+          </div>
+          
+          <div class="meta-cell">
+            <span class="meta-k">Line Range</span>
+            <span class="meta-v">Lines 114 – 127</span>
+          </div>
+          
+          
+          <div class="meta-cell">
+            <span class="meta-k">Vulnerability ID / CWE</span>
+            <span class="meta-v"><code>CWE-841</code> (IMPROPER ENFORCEMENT OF BEHAVIORAL WORKFLOW)</span>
+          </div>
+          
+          
+        </div>
+
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+            Security Analysis & Impact
+          </div>
+          <div class="analysis-content">
+            <p>Data Path Analysis:</p>
+<ul>
+<li>Source: In <code>services/credit-service/src/index.js</code>, route <code>PATCH /api/v1/credit/proposals/:id/status</code> accepts JSON input with <code>body.status</code> and <code>body.reason</code> and invokes <code>proposalStore.updateStatus(id, body.status, body.reason)</code>.</li>
+<li>Sanitization/Validation: <code>updateStatus</code> only checks <code>if (proposal.status === 'CANCELLED')</code>. It contains no state-machine transition guard validation to enforce that a proposal must progress from <code>DRAFT</code> -&gt; <code>ANALYSIS_PENDING</code> -&gt; <code>APPROVED</code> -&gt; <code>CONTRACT_SIGNED</code> before reaching <code>DISBURSEMENT_READY</code>.</li>
+<li>Sink: Lines 119-126 overwrite <code>proposal.status = newStatus</code> and persist it. A borrower or unauthenticated caller can arbitrarily transition a brand new or unapproved credit proposal straight to <code>DISBURSEMENT_READY</code>, bypassing underwriting and credit committee approval.</li>
+</ul>
+<p>Conceptual Exploit Payload:
+Send an HTTP PATCH request to update the status of a pending proposal:</p>
+<pre><code class="language-http">PATCH /api/v1/credit/proposals/prop_102/status HTTP/1.1
+Host: localhost:8084
+Content-Type: application/json
+
+{
+  &quot;status&quot;: &quot;DISBURSEMENT_READY&quot;,
+  &quot;reason&quot;: &quot;Bypassed underwriting checks&quot;
+}
+</code></pre>
+<p>The server accepts the transition and returns status 200 with <code>status: &quot;DISBURSEMENT_READY&quot;</code>, qualifying the proposal for immediate loan disbursement.</p>
+
+          </div>
+        </div>
+
+        
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+            Vulnerable Code Snippet
+          </div>
+          <div class="code-container">
+            <div class="snippet-header">
+              <span>📄 services/credit-service/src/services/proposal_store.js : L114–127</span>
+              <button class="copy-btn" onclick="copySnippet(this)">
+                <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+                <span>Copy Code</span>
+              </button>
+            </div>
+            <div class="snippet-wrap">
+              <div class="snippet-gutter">114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+</div>
+              <pre><code class="language-javascript">    // Business logic vulnerability: omits strict state-machine transition guard validation
+    if (proposal.status === &#39;CANCELLED&#39;) {
+      throw new Error(&#39;Cannot update cancelled proposal&#39;);
+    }
+
+    proposal.status = newStatus;
+    proposal.history.push({
+      status: newStatus,
+      at: new Date().toISOString(),
+      note: reason || &#39;Status updated&#39;
+    });
+
+    this.proposals.set(id, proposal);</code></pre>
+            </div>
+          </div>
+        </div>
+        
+
+        
+        
+
+        
+        <div class="finding-action-bar">
+          <div class="cli-hint">
+            <span class="cli-hint-label">Remediate with CLI:</span>
+            <code>cm fix 416853b7-0a53-437a-954d-c598e8272ebb</code>
+            <button class="copy-inline-btn" onclick="copyText('cm fix 416853b7-0a53-437a-954d-c598e8272ebb', this)" title="Copy command">
+              <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+    
+    <article class="finding-card" data-severity="HIGH" data-status="OPEN">
+      <div class="finding-card-header" onclick="toggleCard(this)">
+        <div class="card-header-left">
+          <span class="severity-pill pill-high">
+            <span class="pill-dot"></span>
+            HIGH
+          </span>
+          <span class="status-pill status-open">OPEN</span>
+          
+          <h3 class="finding-title">Predictable Seed and Weak PRNG in Step-Up OTP Challenge Generator</h3>
+        </div>
+        <div class="card-header-right">
+          <code class="short-id">7008ae15</code>
+          <span class="file-pill" title="services/risk-engine/app/engine/otp.py">📄 services/risk-engine/app/engine/otp.py:L17–21</span>
+          
+            <span class="confidence-pill" title="Detection Confidence">100% conf</span>
+          
+          <button class="chevron-btn" aria-label="Toggle details">
+            <svg class="chevron-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="finding-card-body">
+        
+        <div class="meta-grid">
+          <div class="meta-cell">
+            <span class="meta-k">Finding ID</span>
+            <span class="meta-v"><code>7008ae15-bc4b-4e91-bdb7-c7b1fea03b8b</code></span>
+          </div>
+          <div class="meta-cell">
+            <span class="meta-k">File Path</span>
+            <span class="meta-v"><code>services/risk-engine/app/engine/otp.py</code></span>
+          </div>
+          
+          <div class="meta-cell">
+            <span class="meta-k">Line Range</span>
+            <span class="meta-v">Lines 17 – 21</span>
+          </div>
+          
+          
+          <div class="meta-cell">
+            <span class="meta-k">Vulnerability ID / CWE</span>
+            <span class="meta-v"><code>CWE-338</code> (USE OF CRYPTOGRAPHICALLY WEAK PSEUDO-RANDOM NUMBER GENERATOR (PRNG))</span>
+          </div>
+          
+          
+        </div>
+
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+            Security Analysis & Impact
+          </div>
+          <div class="analysis-content">
+            <p>Data Path Analysis:</p>
+<ul>
+<li>Source: Route <code>POST /api/v1/risk/challenge</code> receives <code>accountId</code> and <code>transactionRef</code> to generate a 2FA step-up challenge OTP.</li>
+<li>Sanitization/Validation: None.</li>
+<li>Sink: Lines 19-21 seed the non-cryptographic <code>random</code> module with <code>int(time.time())</code>, resetting the PRNG state based on the current Unix epoch second. Because an attacker knows or can observe the approximate HTTP request arrival time (e.g., from the server's HTTP <code>Date</code> header), they can predict the exact seed <code>now_ts</code> and calculate <code>otp_code = str(random.randint(100000, 999999))</code> without access to the user's out-of-band communication channel. The attacker can then submit this predicted OTP to <code>POST /api/v1/risk/verify-challenge</code>, bypassing step-up anti-fraud protection for high-risk operations.</li>
+</ul>
+<p>Conceptual Exploit Payload:</p>
+<ol>
+<li>Trigger OTP challenge:</li>
+</ol>
+<pre><code class="language-http">POST /api/v1/risk/challenge HTTP/1.1
+Host: localhost:8085
+Content-Type: application/json
+
+{
+  &quot;accountId&quot;: &quot;acc_1001&quot;,
+  &quot;transactionRef&quot;: &quot;pay_pix_901&quot;
+}
+</code></pre>
+<p>Receive response: <code>{&quot;challengeId&quot;: &quot;chal_abcd1234ef56&quot;, ...}</code>.
+2. Locally calculate candidate OTPs using <code>int(time.time())</code> at request time:</p>
+<pre><code class="language-python">import random, time
+now = int(time.time())
+random.seed(now)
+predicted_otp = str(random.randint(100000, 999999))
+</code></pre>
+<ol start="3">
+<li>Submit the predicted OTP:</li>
+</ol>
+<pre><code class="language-http">POST /api/v1/risk/verify-challenge HTTP/1.1
+Host: localhost:8085
+Content-Type: application/json
+
+{
+  &quot;challengeId&quot;: &quot;chal_abcd1234ef56&quot;,
+  &quot;otpCode&quot;: &quot;&lt;predicted_otp&gt;&quot;
+}
+</code></pre>
+<p>The server verifies the challenge, authorizing fraudulent high-value transactions.</p>
+
+          </div>
+        </div>
+
+        
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+            Vulnerable Code Snippet
+          </div>
+          <div class="code-container">
+            <div class="snippet-header">
+              <span>📄 services/risk-engine/app/engine/otp.py : L17–21</span>
+              <button class="copy-btn" onclick="copySnippet(this)">
+                <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+                <span>Copy Code</span>
+              </button>
+            </div>
+            <div class="snippet-wrap">
+              <div class="snippet-gutter">17
+18
+19
+20
+21
+</div>
+              <pre><code class="language-python">        # Security Vulnerability (CWE-330/338): Weak PRNG for financial challenge OTP
+        # Seeding with epoch timestamp produces predictable sequence
+        now_ts = int(time.time())
+        random.seed(now_ts)
+        otp_code = str(random.randint(100000, 999999))</code></pre>
+            </div>
+          </div>
+        </div>
+        
+
+        
+        
+
+        
+        <div class="finding-action-bar">
+          <div class="cli-hint">
+            <span class="cli-hint-label">Remediate with CLI:</span>
+            <code>cm fix 7008ae15-bc4b-4e91-bdb7-c7b1fea03b8b</code>
+            <button class="copy-inline-btn" onclick="copyText('cm fix 7008ae15-bc4b-4e91-bdb7-c7b1fea03b8b', this)" title="Copy command">
+              <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+    
+    <article class="finding-card" data-severity="HIGH" data-status="OPEN">
+      <div class="finding-card-header" onclick="toggleCard(this)">
+        <div class="card-header-left">
+          <span class="severity-pill pill-high">
+            <span class="pill-dot"></span>
+            HIGH
+          </span>
+          <span class="status-pill status-open">OPEN</span>
+          
+          <h3 class="finding-title">Hardcoded Default Cryptographic Secret Fallback for Partner HMAC Authentication</h3>
+        </div>
+        <div class="card-header-right">
+          <code class="short-id">ec375b07</code>
+          <span class="file-pill" title="services/risk-engine/app/engine/auth.py">📄 services/risk-engine/app/engine/auth.py:L11–15</span>
+          
+            <span class="confidence-pill" title="Detection Confidence">100% conf</span>
+          
+          <button class="chevron-btn" aria-label="Toggle details">
+            <svg class="chevron-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="finding-card-body">
+        
+        <div class="meta-grid">
+          <div class="meta-cell">
+            <span class="meta-k">Finding ID</span>
+            <span class="meta-v"><code>ec375b07-43b8-47f3-9f44-08f515ca0542</code></span>
+          </div>
+          <div class="meta-cell">
+            <span class="meta-k">File Path</span>
+            <span class="meta-v"><code>services/risk-engine/app/engine/auth.py</code></span>
+          </div>
+          
+          <div class="meta-cell">
+            <span class="meta-k">Line Range</span>
+            <span class="meta-v">Lines 11 – 15</span>
+          </div>
+          
+          
+          <div class="meta-cell">
+            <span class="meta-k">Vulnerability ID / CWE</span>
+            <span class="meta-v"><code>CWE-798</code> (USE OF HARD-CODED CREDENTIALS)</span>
+          </div>
+          
+          
+        </div>
+
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+            Security Analysis & Impact
+          </div>
+          <div class="analysis-content">
+            <p>Data Path Analysis:</p>
+<ul>
+<li>Source: Route <code>POST /api/v1/risk/partner-verify</code> receives HTTP request body and incoming HMAC signature from <code>X-Partner-Signature</code> header.</li>
+<li>Sanitization/Validation: In <code>auth.py</code>, if the <code>PARTNER_HMAC_SECRET</code> environment variable is not explicitly supplied in the deployment configuration, the verifier falls back to the static string <code>&quot;cymbal_default_internal_sec_2026&quot;</code>.</li>
+<li>Sink: At lines 12-14, the hardcoded fallback secret is used by <code>hmac.new(self.secret_key, payload, hashlib.sha256).hexdigest()</code> to authenticate partner API requests. Additionally, at line 24, signatures are compared with standard Python equality (<code>expected == incoming_signature</code>) instead of constant-time comparison <code>hmac.compare_digest</code>, introducing an observable timing discrepancy (CWE-208). Any attacker knowing the public/decompiled default secret can forge valid HMAC signatures to impersonate trusted partners.</li>
+</ul>
+<p>Conceptual Exploit Payload:
+Compute the HMAC-SHA256 of any arbitrary partner verification payload using the fallback key:</p>
+<pre><code class="language-python">import hmac, hashlib
+payload = b'{&quot;action&quot;: &quot;authorize_bypass&quot;, &quot;accountId&quot;: &quot;acc_1001&quot;}'
+secret = b'cymbal_default_internal_sec_2026'
+sig = hmac.new(secret, payload, hashlib.sha256).hexdigest()
+</code></pre>
+<p>Send request:</p>
+<pre><code class="language-http">POST /api/v1/risk/partner-verify HTTP/1.1
+Host: localhost:8085
+Content-Type: application/json
+X-Partner-Signature: &lt;sig&gt;
+
+{&quot;action&quot;: &quot;authorize_bypass&quot;, &quot;accountId&quot;: &quot;acc_1001&quot;}
+</code></pre>
+<p>The server validates the signature and returns <code>{&quot;valid&quot;: true, &quot;message&quot;: &quot;Signature verified&quot;}</code>.</p>
+
+          </div>
+        </div>
+
+        
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+            Vulnerable Code Snippet
+          </div>
+          <div class="code-container">
+            <div class="snippet-header">
+              <span>📄 services/risk-engine/app/engine/auth.py : L11–15</span>
+              <button class="copy-btn" onclick="copySnippet(this)">
+                <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+                <span>Copy Code</span>
+              </button>
+            </div>
+            <div class="snippet-wrap">
+              <div class="snippet-gutter">11
+12
+13
+14
+</div>
+              <pre><code class="language-python">        # Security Vulnerability: Hardcoded default secret fallback (CWE-798)
+        self.secret_key = os.environ.get(
+            &#34;PARTNER_HMAC_SECRET&#34;, &#34;cymbal_default_internal_sec_2026&#34;
+        ).encode(&#34;utf-8&#34;)</code></pre>
+            </div>
+          </div>
+        </div>
+        
+
+        
+        
+
+        
+        <div class="finding-action-bar">
+          <div class="cli-hint">
+            <span class="cli-hint-label">Remediate with CLI:</span>
+            <code>cm fix ec375b07-43b8-47f3-9f44-08f515ca0542</code>
+            <button class="copy-inline-btn" onclick="copyText('cm fix ec375b07-43b8-47f3-9f44-08f515ca0542', this)" title="Copy command">
+              <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+    
+    <article class="finding-card" data-severity="HIGH" data-status="OPEN">
+      <div class="finding-card-header" onclick="toggleCard(this)">
+        <div class="card-header-left">
+          <span class="severity-pill pill-high">
+            <span class="pill-dot"></span>
+            HIGH
+          </span>
+          <span class="status-pill status-open">OPEN</span>
+          
+          <h3 class="finding-title">Incomplete Blacklist Validation Leading to Server-Side Request Forgery (SSRF) in Webhooks</h3>
+        </div>
+        <div class="card-header-right">
+          <code class="short-id">ab996687</code>
+          <span class="file-pill" title="services/payments-service/app/services/webhook_dispatcher.py">📄 services/payments-service/app/services/webhook_dispatcher.py:L35–41</span>
+          
+            <span class="confidence-pill" title="Detection Confidence">90% conf</span>
+          
+          <button class="chevron-btn" aria-label="Toggle details">
+            <svg class="chevron-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="finding-card-body">
+        
+        <div class="meta-grid">
+          <div class="meta-cell">
+            <span class="meta-k">Finding ID</span>
+            <span class="meta-v"><code>ab996687-10ef-48f0-a349-620321ba7bfe</code></span>
+          </div>
+          <div class="meta-cell">
+            <span class="meta-k">File Path</span>
+            <span class="meta-v"><code>services/payments-service/app/services/webhook_dispatcher.py</code></span>
+          </div>
+          
+          <div class="meta-cell">
+            <span class="meta-k">Line Range</span>
+            <span class="meta-v">Lines 35 – 41</span>
+          </div>
+          
+          
+          <div class="meta-cell">
+            <span class="meta-k">Vulnerability ID / CWE</span>
+            <span class="meta-v"><code>CWE-918</code> (SERVER-SIDE REQUEST FORGERY (SSRF))</span>
+          </div>
+          
+          
+        </div>
+
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+            Security Analysis & Impact
+          </div>
+          <div class="analysis-content">
+            <p>Data Path Analysis:</p>
+<ul>
+<li>Source: In <code>services/payments-service/main.py</code>, route <code>POST /api/v1/webhooks/register</code> accepts JSON input with <code>merchantId</code> and <code>callbackUrl</code>, and registers the webhook via <code>webhook_dispatcher.register_endpoint(merchant_id, callback_url)</code>.</li>
+<li>Sanitization/Validation: <code>is_safe_callback_url</code> only checks if <code>parsed.scheme in ('http', 'https')</code> and tests <code>hostname.lower() in {&quot;localhost&quot;, &quot;127.0.0.1&quot;}</code>.</li>
+<li>Sink: Lines 35-41 only check a naive, static blacklist of two hostnames. It omits DNS resolution checks, private IPv4/IPv6 address filtering (RFC 1918 subnets like 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, or IPv6 ::1), and cloud link-local metadata endpoints (<code>169.254.169.254</code>). Consequently, attackers can register internal cloud metadata service URLs or private network addresses, enabling Server-Side Request Forgery (SSRF) when event notifications are dispatched.</li>
+</ul>
+<p>Conceptual Exploit Payload:
+Register a webhook targeting the cloud metadata service:</p>
+<pre><code class="language-http">POST /api/v1/webhooks/register HTTP/1.1
+Host: localhost:8083
+Content-Type: application/json
+
+{
+  &quot;merchantId&quot;: &quot;merch_attacker&quot;,
+  &quot;callbackUrl&quot;: &quot;http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token&quot;
+}
+</code></pre>
+<p>The server validates the URL with <code>is_safe_callback_url</code>, passes the check because <code>169.254.169.254</code> is not <code>localhost</code> or <code>127.0.0.1</code>, and registers the endpoint with HTTP 201 Created.</p>
+
+          </div>
+        </div>
+
+        
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+            Vulnerable Code Snippet
+          </div>
+          <div class="code-container">
+            <div class="snippet-header">
+              <span>📄 services/payments-service/app/services/webhook_dispatcher.py : L35–41</span>
+              <button class="copy-btn" onclick="copySnippet(this)">
+                <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+                <span>Copy Code</span>
+              </button>
+            </div>
+            <div class="snippet-wrap">
+              <div class="snippet-gutter">35
+36
+37
+38
+39
+40
+41
+</div>
+              <pre><code class="language-python">            hostname = parsed.hostname or &#34;&#34;
+            # Naive blacklist check that does not resolve DNS or verify internal IP ranges
+            blocked_hosts = {&#34;localhost&#34;, &#34;127.0.0.1&#34;}
+            if hostname.lower() in blocked_hosts:
+                return False
+
+            return True</code></pre>
+            </div>
+          </div>
+        </div>
+        
+
+        
+        
+
+        
+        <div class="finding-action-bar">
+          <div class="cli-hint">
+            <span class="cli-hint-label">Remediate with CLI:</span>
+            <code>cm fix ab996687-10ef-48f0-a349-620321ba7bfe</code>
+            <button class="copy-inline-btn" onclick="copyText('cm fix ab996687-10ef-48f0-a349-620321ba7bfe', this)" title="Copy command">
+              <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+    
+    <article class="finding-card" data-severity="HIGH" data-status="OPEN">
+      <div class="finding-card-header" onclick="toggleCard(this)">
+        <div class="card-header-left">
+          <span class="severity-pill pill-high">
+            <span class="pill-dot"></span>
+            HIGH
+          </span>
+          <span class="status-pill status-open">OPEN</span>
+          
+          <h3 class="finding-title">Check-Then-Set Race Condition in Payment Idempotency Processing</h3>
+        </div>
+        <div class="card-header-right">
+          <code class="short-id">ba3859e6</code>
+          <span class="file-pill" title="services/payments-service/app/services/payment_service.py">📄 services/payments-service/app/services/payment_service.py:L83–130</span>
+          
+            <span class="confidence-pill" title="Detection Confidence">95% conf</span>
+          
+          <button class="chevron-btn" aria-label="Toggle details">
+            <svg class="chevron-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="finding-card-body">
+        
+        <div class="meta-grid">
+          <div class="meta-cell">
+            <span class="meta-k">Finding ID</span>
+            <span class="meta-v"><code>ba3859e6-4d7b-47c1-888b-b3e1e24c8975</code></span>
+          </div>
+          <div class="meta-cell">
+            <span class="meta-k">File Path</span>
+            <span class="meta-v"><code>services/payments-service/app/services/payment_service.py</code></span>
+          </div>
+          
+          <div class="meta-cell">
+            <span class="meta-k">Line Range</span>
+            <span class="meta-v">Lines 83 – 130</span>
+          </div>
+          
+          
+          <div class="meta-cell">
+            <span class="meta-k">Vulnerability ID / CWE</span>
+            <span class="meta-v"><code>CWE-362</code> (CONCURRENT EXECUTION USING SHARED RESOURCE WITH IMPROPER SYNCHRONIZATION)</span>
+          </div>
+          
+          
+        </div>
+
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+            Security Analysis & Impact
+          </div>
+          <div class="analysis-content">
+            <p>Data Path Analysis:</p>
+<ul>
+<li>Source: In <code>services/payments-service/main.py</code>, endpoint <code>POST /api/v1/payments/pix</code> receives <code>Idempotency-Key</code> via request headers or JSON payload and passes it to <code>payment_svc.process_pix_payment</code>.</li>
+<li>Sanitization/Validation: At line 85, the service checks whether the key exists in the cache (<code>cached = self.idempotency_mgr.get_record(idempotency_key)</code>). However, no lock is acquired, and the transaction is not reserved or locked in a &quot;PENDING/PROCESSING&quot; state before external settlement.</li>
+<li>Sink: Lines 104-130: After the check, execution delays for downstream rail simulation (<code>time.sleep(0.01)</code>), and the record is only committed to the idempotency store <em>after</em> the payment settlement finishes. If two concurrent payment requests arrive with the same <code>Idempotency-Key</code>, both find the key unset in cache, both proceed to execute payment settlement, and both produce separate settled transaction orders (<code>pay_...</code>), defeating the idempotency guarantee.</li>
+</ul>
+<p>Conceptual Exploit Payload:
+Send two parallel requests with the identical <code>Idempotency-Key</code>:</p>
+<pre><code class="language-http">POST /api/v1/payments/pix HTTP/1.1
+Host: localhost:8083
+Content-Type: application/json
+Idempotency-Key: idem_race_attack_01
+
+{
+  &quot;sourceAccountId&quot;: &quot;acc_1001&quot;,
+  &quot;pixKey&quot;: &quot;merchant@store.com&quot;,
+  &quot;amount&quot;: 500.0,
+  &quot;description&quot;: &quot;Payment&quot;
+}
+</code></pre>
+<p>Due to the check-then-set race window between lines 85 and 130, both requests execute settlement independently, creating two distinct payment orders and double-charging the account.</p>
+
+          </div>
+        </div>
+
+        
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+            Vulnerable Code Snippet
+          </div>
+          <div class="code-container">
+            <div class="snippet-header">
+              <span>📄 services/payments-service/app/services/payment_service.py : L83–130</span>
+              <button class="copy-btn" onclick="copySnippet(this)">
+                <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+                <span>Copy Code</span>
+              </button>
+            </div>
+            <div class="snippet-wrap">
+              <div class="snippet-gutter">83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+</div>
+              <pre><code class="language-python">        # 1. Idempotency Check
+        if idempotency_key:
+            cached = self.idempotency_mgr.get_record(idempotency_key)
+            if cached:
+                logger.info(f&#34;Returning cached payment for idempotency key: {idempotency_key}&#34;)
+                cached_data = cached[&#34;result&#34;]
+                return PaymentOrder(
+                    id=cached_data[&#34;id&#34;],
+                    source_account_id=cached_data[&#34;source_account_id&#34;],
+                    destination_account_id=cached_data.get(&#34;destination_account_id&#34;),
+                    pix_key=cached_data.get(&#34;pix_key&#34;),
+                    method=PaymentMethod(cached_data[&#34;method&#34;]),
+                    amount=cached_data[&#34;amount&#34;],
+                    currency=cached_data[&#34;currency&#34;],
+                    description=cached_data[&#34;description&#34;],
+                    status=PaymentStatus(cached_data[&#34;status&#34;]),
+                    idempotency_key=idempotency_key,
+                    created_at=cached_data[&#34;created_at&#34;],
+                    settled_at=cached_data.get(&#34;settled_at&#34;),
+                )
+
+        # 2. Simulate settlement latency with Central Bank PIX rail
+        time.sleep(0.01)
+
+        # 3. Create settled payment order
+        order_id = f&#34;pay_{uuid.uuid4().hex[:10]}&#34;
+        now_str = datetime.now(timezone.utc).isoformat()
+
+        order = PaymentOrder(
+            id=order_id,
+            source_account_id=source_account_id,
+            destination_account_id=None,
+            pix_key=pix_key,
+            method=PaymentMethod.PIX,
+            amount=amount,
+            currency=&#34;BRL&#34;,
+            description=description,
+            status=PaymentStatus.SETTLED,
+            idempotency_key=idempotency_key,
+            created_at=now_str,
+            settled_at=now_str,
+        )
+
+        self.orders[order_id] = order
+
+        # 4. Commit to idempotency cache after settlement completes
+        if idempotency_key:
+            self.idempotency_mgr.save_record(idempotency_key, order.to_dict())</code></pre>
+            </div>
+          </div>
+        </div>
+        
+
+        
+        
+
+        
+        <div class="finding-action-bar">
+          <div class="cli-hint">
+            <span class="cli-hint-label">Remediate with CLI:</span>
+            <code>cm fix ba3859e6-4d7b-47c1-888b-b3e1e24c8975</code>
+            <button class="copy-inline-btn" onclick="copyText('cm fix ba3859e6-4d7b-47c1-888b-b3e1e24c8975', this)" title="Copy command">
+              <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+    
+    <article class="finding-card" data-severity="HIGH" data-status="OPEN">
+      <div class="finding-card-header" onclick="toggleCard(this)">
+        <div class="card-header-left">
+          <span class="severity-pill pill-high">
+            <span class="pill-dot"></span>
+            HIGH
+          </span>
+          <span class="status-pill status-open">OPEN</span>
+          
+          <h3 class="finding-title">Check-Then-Set Race Condition in Payment Idempotency Processing</h3>
+        </div>
+        <div class="card-header-right">
+          <code class="short-id">520588fb</code>
+          <span class="file-pill" title="services/payments-service/app/services/payment_service.py">📄 services/payments-service/app/services/payment_service.py:L83–130</span>
+          
+            <span class="confidence-pill" title="Detection Confidence">95% conf</span>
+          
+          <button class="chevron-btn" aria-label="Toggle details">
+            <svg class="chevron-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="finding-card-body">
+        
+        <div class="meta-grid">
+          <div class="meta-cell">
+            <span class="meta-k">Finding ID</span>
+            <span class="meta-v"><code>520588fb-6a70-5ab7-85bf-e89f32c1122c</code></span>
+          </div>
+          <div class="meta-cell">
+            <span class="meta-k">File Path</span>
+            <span class="meta-v"><code>services/payments-service/app/services/payment_service.py</code></span>
+          </div>
+          
+          <div class="meta-cell">
+            <span class="meta-k">Line Range</span>
+            <span class="meta-v">Lines 83 – 130</span>
+          </div>
+          
+          
+          <div class="meta-cell">
+            <span class="meta-k">Vulnerability ID / CWE</span>
+            <span class="meta-v"><code>CWE-362</code> (Concurrent Execution using Shared Resource with Improper Synchronization)</span>
+          </div>
+          
+          
+        </div>
+
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+            Security Analysis & Impact
+          </div>
+          <div class="analysis-content">
+            <p>Data Path Analysis:</p>
+<ul>
+<li>Source: In <code>services/payments-service/main.py</code>, endpoint <code>POST /api/v1/payments/pix</code> receives <code>Idempotency-Key</code> via request headers or JSON payload and passes it to <code>payment_svc.process_pix_payment</code>.</li>
+<li>Sanitization/Validation: At line 85, the service checks whether the key exists in the cache (<code>cached = self.idempotency_mgr.get_record(idempotency_key)</code>). However, no lock is acquired, and the transaction is not reserved or locked in a &quot;PENDING/PROCESSING&quot; state before external settlement.</li>
+<li>Sink: Lines 104-130: After the check, execution delays for downstream rail simulation (<code>time.sleep(0.01)</code>), and the record is only committed to the idempotency store <em>after</em> the payment settlement finishes. If two concurrent payment requests arrive with the same <code>Idempotency-Key</code>, both find the key unset in cache, both proceed to execute payment settlement, and both produce separate settled transaction orders (<code>pay_...</code>), defeating the idempotency guarantee.</li>
+</ul>
+<p>Conceptual Exploit Payload:
+Send two parallel requests with the identical <code>Idempotency-Key</code>:</p>
+<pre><code class="language-http">POST /api/v1/payments/pix HTTP/1.1
+Host: localhost:8083
+Content-Type: application/json
+Idempotency-Key: idem_race_attack_01
+
+{
+  &quot;sourceAccountId&quot;: &quot;acc_1001&quot;,
+  &quot;pixKey&quot;: &quot;merchant@store.com&quot;,
+  &quot;amount&quot;: 500.0,
+  &quot;description&quot;: &quot;Payment&quot;
+}
+</code></pre>
+<p>Due to the check-then-set race window between lines 85 and 130, both requests execute settlement independently, creating two distinct payment orders and double-charging the account.</p>
+
+          </div>
+        </div>
+
+        
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+            Vulnerable Code Snippet
+          </div>
+          <div class="code-container">
+            <div class="snippet-header">
+              <span>📄 services/payments-service/app/services/payment_service.py : L83–130</span>
+              <button class="copy-btn" onclick="copySnippet(this)">
+                <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+                <span>Copy Code</span>
+              </button>
+            </div>
+            <div class="snippet-wrap">
+              <div class="snippet-gutter">83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+</div>
+              <pre><code class="language-python">        # 1. Idempotency Check
+        if idempotency_key:
+            cached = self.idempotency_mgr.get_record(idempotency_key)
+            if cached:
+                logger.info(f&#34;Returning cached payment for idempotency key: {idempotency_key}&#34;)
+                cached_data = cached[&#34;result&#34;]
+                return PaymentOrder(
+                    id=cached_data[&#34;id&#34;],
+                    source_account_id=cached_data[&#34;source_account_id&#34;],
+                    destination_account_id=cached_data.get(&#34;destination_account_id&#34;),
+                    pix_key=cached_data.get(&#34;pix_key&#34;),
+                    method=PaymentMethod(cached_data[&#34;method&#34;]),
+                    amount=cached_data[&#34;amount&#34;],
+                    currency=cached_data[&#34;currency&#34;],
+                    description=cached_data[&#34;description&#34;],
+                    status=PaymentStatus(cached_data[&#34;status&#34;]),
+                    idempotency_key=idempotency_key,
+                    created_at=cached_data[&#34;created_at&#34;],
+                    settled_at=cached_data.get(&#34;settled_at&#34;),
+                )
+
+        # 2. Simulate settlement latency with Central Bank PIX rail
+        time.sleep(0.01)
+
+        # 3. Create settled payment order
+        order_id = f&#34;pay_{uuid.uuid4().hex[:10]}&#34;
+        now_str = datetime.now(timezone.utc).isoformat()
+
+        order = PaymentOrder(
+            id=order_id,
+            source_account_id=source_account_id,
+            destination_account_id=None,
+            pix_key=pix_key,
+            method=PaymentMethod.PIX,
+            amount=amount,
+            currency=&#34;BRL&#34;,
+            description=description,
+            status=PaymentStatus.SETTLED,
+            idempotency_key=idempotency_key,
+            created_at=now_str,
+            settled_at=now_str,
+        )
+
+        self.orders[order_id] = order
+
+        # 4. Commit to idempotency cache after settlement completes
+        if idempotency_key:
+            self.idempotency_mgr.save_record(idempotency_key, order.to_dict())</code></pre>
+            </div>
+          </div>
+        </div>
+        
+
+        
+        
+
+        
+        <div class="finding-action-bar">
+          <div class="cli-hint">
+            <span class="cli-hint-label">Remediate with CLI:</span>
+            <code>cm fix 520588fb-6a70-5ab7-85bf-e89f32c1122c</code>
+            <button class="copy-inline-btn" onclick="copyText('cm fix 520588fb-6a70-5ab7-85bf-e89f32c1122c', this)" title="Copy command">
+              <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+    
+    <article class="finding-card" data-severity="HIGH" data-status="OPEN">
+      <div class="finding-card-header" onclick="toggleCard(this)">
+        <div class="card-header-left">
+          <span class="severity-pill pill-high">
+            <span class="pill-dot"></span>
+            HIGH
+          </span>
+          <span class="status-pill status-open">OPEN</span>
+          
+          <h3 class="finding-title">Incomplete Blacklist Validation Leading to Server-Side Request Forgery (SSRF) in Webhooks</h3>
+        </div>
+        <div class="card-header-right">
+          <code class="short-id">604a7172</code>
+          <span class="file-pill" title="services/payments-service/app/services/webhook_dispatcher.py">📄 services/payments-service/app/services/webhook_dispatcher.py:L35–41</span>
+          
+            <span class="confidence-pill" title="Detection Confidence">90% conf</span>
+          
+          <button class="chevron-btn" aria-label="Toggle details">
+            <svg class="chevron-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="finding-card-body">
+        
+        <div class="meta-grid">
+          <div class="meta-cell">
+            <span class="meta-k">Finding ID</span>
+            <span class="meta-v"><code>604a7172-fc18-5f38-8d85-c03a0ea59693</code></span>
+          </div>
+          <div class="meta-cell">
+            <span class="meta-k">File Path</span>
+            <span class="meta-v"><code>services/payments-service/app/services/webhook_dispatcher.py</code></span>
+          </div>
+          
+          <div class="meta-cell">
+            <span class="meta-k">Line Range</span>
+            <span class="meta-v">Lines 35 – 41</span>
+          </div>
+          
+          
+          <div class="meta-cell">
+            <span class="meta-k">Vulnerability ID / CWE</span>
+            <span class="meta-v"><code>CWE-918</code> (Server-Side Request Forgery (SSRF))</span>
+          </div>
+          
+          
+        </div>
+
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+            Security Analysis & Impact
+          </div>
+          <div class="analysis-content">
+            <p>Data Path Analysis:</p>
+<ul>
+<li>Source: In <code>services/payments-service/main.py</code>, route <code>POST /api/v1/webhooks/register</code> accepts JSON input with <code>merchantId</code> and <code>callbackUrl</code>, and registers the webhook via <code>webhook_dispatcher.register_endpoint(merchant_id, callback_url)</code>.</li>
+<li>Sanitization/Validation: <code>is_safe_callback_url</code> only checks if <code>parsed.scheme in ('http', 'https')</code> and tests <code>hostname.lower() in {&quot;localhost&quot;, &quot;127.0.0.1&quot;}</code>.</li>
+<li>Sink: Lines 35-41 only check a naive, static blacklist of two hostnames. It omits DNS resolution checks, private IPv4/IPv6 address filtering (RFC 1918 subnets like 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, or IPv6 ::1), and cloud link-local metadata endpoints (<code>169.254.169.254</code>). Consequently, attackers can register internal cloud metadata service URLs or private network addresses, enabling Server-Side Request Forgery (SSRF) when event notifications are dispatched.</li>
+</ul>
+<p>Conceptual Exploit Payload:
+Register a webhook targeting the cloud metadata service:</p>
+<pre><code class="language-http">POST /api/v1/webhooks/register HTTP/1.1
+Host: localhost:8083
+Content-Type: application/json
+
+{
+  &quot;merchantId&quot;: &quot;merch_attacker&quot;,
+  &quot;callbackUrl&quot;: &quot;http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token&quot;
+}
+</code></pre>
+<p>The server validates the URL with <code>is_safe_callback_url</code>, passes the check because <code>169.254.169.254</code> is not <code>localhost</code> or <code>127.0.0.1</code>, and registers the endpoint with HTTP 201 Created.</p>
+
+          </div>
+        </div>
+
+        
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+            Vulnerable Code Snippet
+          </div>
+          <div class="code-container">
+            <div class="snippet-header">
+              <span>📄 services/payments-service/app/services/webhook_dispatcher.py : L35–41</span>
+              <button class="copy-btn" onclick="copySnippet(this)">
+                <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+                <span>Copy Code</span>
+              </button>
+            </div>
+            <div class="snippet-wrap">
+              <div class="snippet-gutter">35
+36
+37
+38
+39
+40
+41
+</div>
+              <pre><code class="language-python">            hostname = parsed.hostname or &#34;&#34;
+            # Naive blacklist check that does not resolve DNS or verify internal IP ranges
+            blocked_hosts = {&#34;localhost&#34;, &#34;127.0.0.1&#34;}
+            if hostname.lower() in blocked_hosts:
+                return False
+
+            return True</code></pre>
+            </div>
+          </div>
+        </div>
+        
+
+        
+        
+
+        
+        <div class="finding-action-bar">
+          <div class="cli-hint">
+            <span class="cli-hint-label">Remediate with CLI:</span>
+            <code>cm fix 604a7172-fc18-5f38-8d85-c03a0ea59693</code>
+            <button class="copy-inline-btn" onclick="copyText('cm fix 604a7172-fc18-5f38-8d85-c03a0ea59693', this)" title="Copy command">
+              <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+    
+    <article class="finding-card" data-severity="HIGH" data-status="OPEN">
+      <div class="finding-card-header" onclick="toggleCard(this)">
+        <div class="card-header-left">
+          <span class="severity-pill pill-high">
+            <span class="pill-dot"></span>
+            HIGH
+          </span>
+          <span class="status-pill status-open">OPEN</span>
+          
+          <h3 class="finding-title">Hardcoded Default Cryptographic Secret Fallback for Partner HMAC Authentication</h3>
+        </div>
+        <div class="card-header-right">
+          <code class="short-id">fcd32678</code>
+          <span class="file-pill" title="services/risk-engine/app/engine/auth.py">📄 services/risk-engine/app/engine/auth.py:L11–15</span>
+          
+            <span class="confidence-pill" title="Detection Confidence">100% conf</span>
+          
+          <button class="chevron-btn" aria-label="Toggle details">
+            <svg class="chevron-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="finding-card-body">
+        
+        <div class="meta-grid">
+          <div class="meta-cell">
+            <span class="meta-k">Finding ID</span>
+            <span class="meta-v"><code>fcd32678-f62e-5226-a1ae-1702a9d65d65</code></span>
+          </div>
+          <div class="meta-cell">
+            <span class="meta-k">File Path</span>
+            <span class="meta-v"><code>services/risk-engine/app/engine/auth.py</code></span>
+          </div>
+          
+          <div class="meta-cell">
+            <span class="meta-k">Line Range</span>
+            <span class="meta-v">Lines 11 – 15</span>
+          </div>
+          
+          
+          <div class="meta-cell">
+            <span class="meta-k">Vulnerability ID / CWE</span>
+            <span class="meta-v"><code>CWE-798</code> (Use of Hard-coded Credentials)</span>
+          </div>
+          
+          
+        </div>
+
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+            Security Analysis & Impact
+          </div>
+          <div class="analysis-content">
+            <p>Data Path Analysis:</p>
+<ul>
+<li>Source: Route <code>POST /api/v1/risk/partner-verify</code> receives HTTP request body and incoming HMAC signature from <code>X-Partner-Signature</code> header.</li>
+<li>Sanitization/Validation: In <code>auth.py</code>, if the <code>PARTNER_HMAC_SECRET</code> environment variable is not explicitly supplied in the deployment configuration, the verifier falls back to the static string <code>&quot;cymbal_default_internal_sec_2026&quot;</code>.</li>
+<li>Sink: At lines 12-14, the hardcoded fallback secret is used by <code>hmac.new(self.secret_key, payload, hashlib.sha256).hexdigest()</code> to authenticate partner API requests. Additionally, at line 24, signatures are compared with standard Python equality (<code>expected == incoming_signature</code>) instead of constant-time comparison <code>hmac.compare_digest</code>, introducing an observable timing discrepancy (CWE-208). Any attacker knowing the public/decompiled default secret can forge valid HMAC signatures to impersonate trusted partners.</li>
+</ul>
+<p>Conceptual Exploit Payload:
+Compute the HMAC-SHA256 of any arbitrary partner verification payload using the fallback key:</p>
+<pre><code class="language-python">import hmac, hashlib
+payload = b'{&quot;action&quot;: &quot;authorize_bypass&quot;, &quot;accountId&quot;: &quot;acc_1001&quot;}'
+secret = b'cymbal_default_internal_sec_2026'
+sig = hmac.new(secret, payload, hashlib.sha256).hexdigest()
+</code></pre>
+<p>Send request:</p>
+<pre><code class="language-http">POST /api/v1/risk/partner-verify HTTP/1.1
+Host: localhost:8085
+Content-Type: application/json
+X-Partner-Signature: &lt;sig&gt;
+
+{&quot;action&quot;: &quot;authorize_bypass&quot;, &quot;accountId&quot;: &quot;acc_1001&quot;}
+</code></pre>
+<p>The server validates the signature and returns <code>{&quot;valid&quot;: true, &quot;message&quot;: &quot;Signature verified&quot;}</code>.</p>
+
+          </div>
+        </div>
+
+        
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+            Vulnerable Code Snippet
+          </div>
+          <div class="code-container">
+            <div class="snippet-header">
+              <span>📄 services/risk-engine/app/engine/auth.py : L11–15</span>
+              <button class="copy-btn" onclick="copySnippet(this)">
+                <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+                <span>Copy Code</span>
+              </button>
+            </div>
+            <div class="snippet-wrap">
+              <div class="snippet-gutter">11
+12
+13
+14
+</div>
+              <pre><code class="language-python">        # Security Vulnerability: Hardcoded default secret fallback (CWE-798)
+        self.secret_key = os.environ.get(
+            &#34;PARTNER_HMAC_SECRET&#34;, &#34;cymbal_default_internal_sec_2026&#34;
+        ).encode(&#34;utf-8&#34;)</code></pre>
+            </div>
+          </div>
+        </div>
+        
+
+        
+        
+
+        
+        <div class="finding-action-bar">
+          <div class="cli-hint">
+            <span class="cli-hint-label">Remediate with CLI:</span>
+            <code>cm fix fcd32678-f62e-5226-a1ae-1702a9d65d65</code>
+            <button class="copy-inline-btn" onclick="copyText('cm fix fcd32678-f62e-5226-a1ae-1702a9d65d65', this)" title="Copy command">
+              <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+    
+    <article class="finding-card" data-severity="HIGH" data-status="OPEN">
+      <div class="finding-card-header" onclick="toggleCard(this)">
+        <div class="card-header-left">
+          <span class="severity-pill pill-high">
+            <span class="pill-dot"></span>
+            HIGH
+          </span>
+          <span class="status-pill status-open">OPEN</span>
+          
+          <h3 class="finding-title">Predictable Seed and Weak PRNG in Step-Up OTP Challenge Generator</h3>
+        </div>
+        <div class="card-header-right">
+          <code class="short-id">07f41af1</code>
+          <span class="file-pill" title="services/risk-engine/app/engine/otp.py">📄 services/risk-engine/app/engine/otp.py:L17–21</span>
+          
+            <span class="confidence-pill" title="Detection Confidence">100% conf</span>
+          
+          <button class="chevron-btn" aria-label="Toggle details">
+            <svg class="chevron-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="finding-card-body">
+        
+        <div class="meta-grid">
+          <div class="meta-cell">
+            <span class="meta-k">Finding ID</span>
+            <span class="meta-v"><code>07f41af1-9cae-508f-8559-dace25dc245b</code></span>
+          </div>
+          <div class="meta-cell">
+            <span class="meta-k">File Path</span>
+            <span class="meta-v"><code>services/risk-engine/app/engine/otp.py</code></span>
+          </div>
+          
+          <div class="meta-cell">
+            <span class="meta-k">Line Range</span>
+            <span class="meta-v">Lines 17 – 21</span>
+          </div>
+          
+          
+          <div class="meta-cell">
+            <span class="meta-k">Vulnerability ID / CWE</span>
+            <span class="meta-v"><code>CWE-338</code> (Use of Cryptographically Weak Pseudo-Random Number Generator (PRNG))</span>
+          </div>
+          
+          
+        </div>
+
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+            Security Analysis & Impact
+          </div>
+          <div class="analysis-content">
+            <p>Data Path Analysis:</p>
+<ul>
+<li>Source: Route <code>POST /api/v1/risk/challenge</code> receives <code>accountId</code> and <code>transactionRef</code> to generate a 2FA step-up challenge OTP.</li>
+<li>Sanitization/Validation: None.</li>
+<li>Sink: Lines 19-21 seed the non-cryptographic <code>random</code> module with <code>int(time.time())</code>, resetting the PRNG state based on the current Unix epoch second. Because an attacker knows or can observe the approximate HTTP request arrival time (e.g., from the server's HTTP <code>Date</code> header), they can predict the exact seed <code>now_ts</code> and calculate <code>otp_code = str(random.randint(100000, 999999))</code> without access to the user's out-of-band communication channel. The attacker can then submit this predicted OTP to <code>POST /api/v1/risk/verify-challenge</code>, bypassing step-up anti-fraud protection for high-risk operations.</li>
+</ul>
+<p>Conceptual Exploit Payload:</p>
+<ol>
+<li>Trigger OTP challenge:</li>
+</ol>
+<pre><code class="language-http">POST /api/v1/risk/challenge HTTP/1.1
+Host: localhost:8085
+Content-Type: application/json
+
+{
+  &quot;accountId&quot;: &quot;acc_1001&quot;,
+  &quot;transactionRef&quot;: &quot;pay_pix_901&quot;
+}
+</code></pre>
+<p>Receive response: <code>{&quot;challengeId&quot;: &quot;chal_abcd1234ef56&quot;, ...}</code>.
+2. Locally calculate candidate OTPs using <code>int(time.time())</code> at request time:</p>
+<pre><code class="language-python">import random, time
+now = int(time.time())
+random.seed(now)
+predicted_otp = str(random.randint(100000, 999999))
+</code></pre>
+<ol start="3">
+<li>Submit the predicted OTP:</li>
+</ol>
+<pre><code class="language-http">POST /api/v1/risk/verify-challenge HTTP/1.1
+Host: localhost:8085
+Content-Type: application/json
+
+{
+  &quot;challengeId&quot;: &quot;chal_abcd1234ef56&quot;,
+  &quot;otpCode&quot;: &quot;&lt;predicted_otp&gt;&quot;
+}
+</code></pre>
+<p>The server verifies the challenge, authorizing fraudulent high-value transactions.</p>
+
+          </div>
+        </div>
+
+        
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+            Vulnerable Code Snippet
+          </div>
+          <div class="code-container">
+            <div class="snippet-header">
+              <span>📄 services/risk-engine/app/engine/otp.py : L17–21</span>
+              <button class="copy-btn" onclick="copySnippet(this)">
+                <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+                <span>Copy Code</span>
+              </button>
+            </div>
+            <div class="snippet-wrap">
+              <div class="snippet-gutter">17
+18
+19
+20
+21
+</div>
+              <pre><code class="language-python">        # Security Vulnerability (CWE-330/338): Weak PRNG for financial challenge OTP
+        # Seeding with epoch timestamp produces predictable sequence
+        now_ts = int(time.time())
+        random.seed(now_ts)
+        otp_code = str(random.randint(100000, 999999))</code></pre>
+            </div>
+          </div>
+        </div>
+        
+
+        
+        
+
+        
+        <div class="finding-action-bar">
+          <div class="cli-hint">
+            <span class="cli-hint-label">Remediate with CLI:</span>
+            <code>cm fix 07f41af1-9cae-508f-8559-dace25dc245b</code>
+            <button class="copy-inline-btn" onclick="copyText('cm fix 07f41af1-9cae-508f-8559-dace25dc245b', this)" title="Copy command">
+              <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+    
+    <article class="finding-card" data-severity="HIGH" data-status="OPEN">
+      <div class="finding-card-header" onclick="toggleCard(this)">
+        <div class="card-header-left">
+          <span class="severity-pill pill-high">
+            <span class="pill-dot"></span>
+            HIGH
+          </span>
+          <span class="status-pill status-open">OPEN</span>
+          
+          <h3 class="finding-title">Missing State Machine Transition Guard in Credit Proposal Lifecycle</h3>
+        </div>
+        <div class="card-header-right">
+          <code class="short-id">d97b0f23</code>
+          <span class="file-pill" title="services/credit-service/src/services/proposal_store.js">📄 services/credit-service/src/services/proposal_store.js:L114–127</span>
+          
+            <span class="confidence-pill" title="Detection Confidence">95% conf</span>
+          
+          <button class="chevron-btn" aria-label="Toggle details">
+            <svg class="chevron-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="finding-card-body">
+        
+        <div class="meta-grid">
+          <div class="meta-cell">
+            <span class="meta-k">Finding ID</span>
+            <span class="meta-v"><code>d97b0f23-31fe-59e7-b131-d062022fe6ba</code></span>
+          </div>
+          <div class="meta-cell">
+            <span class="meta-k">File Path</span>
+            <span class="meta-v"><code>services/credit-service/src/services/proposal_store.js</code></span>
+          </div>
+          
+          <div class="meta-cell">
+            <span class="meta-k">Line Range</span>
+            <span class="meta-v">Lines 114 – 127</span>
+          </div>
+          
+          
+          <div class="meta-cell">
+            <span class="meta-k">Vulnerability ID / CWE</span>
+            <span class="meta-v"><code>CWE-841</code> (Improper Enforcement of Behavioral Workflow)</span>
+          </div>
+          
+          
+        </div>
+
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+            Security Analysis & Impact
+          </div>
+          <div class="analysis-content">
+            <p>Data Path Analysis:</p>
+<ul>
+<li>Source: In <code>services/credit-service/src/index.js</code>, route <code>PATCH /api/v1/credit/proposals/:id/status</code> accepts JSON input with <code>body.status</code> and <code>body.reason</code> and invokes <code>proposalStore.updateStatus(id, body.status, body.reason)</code>.</li>
+<li>Sanitization/Validation: <code>updateStatus</code> only checks <code>if (proposal.status === 'CANCELLED')</code>. It contains no state-machine transition guard validation to enforce that a proposal must progress from <code>DRAFT</code> -&gt; <code>ANALYSIS_PENDING</code> -&gt; <code>APPROVED</code> -&gt; <code>CONTRACT_SIGNED</code> before reaching <code>DISBURSEMENT_READY</code>.</li>
+<li>Sink: Lines 119-126 overwrite <code>proposal.status = newStatus</code> and persist it. A borrower or unauthenticated caller can arbitrarily transition a brand new or unapproved credit proposal straight to <code>DISBURSEMENT_READY</code>, bypassing underwriting and credit committee approval.</li>
+</ul>
+<p>Conceptual Exploit Payload:
+Send an HTTP PATCH request to update the status of a pending proposal:</p>
+<pre><code class="language-http">PATCH /api/v1/credit/proposals/prop_102/status HTTP/1.1
+Host: localhost:8084
+Content-Type: application/json
+
+{
+  &quot;status&quot;: &quot;DISBURSEMENT_READY&quot;,
+  &quot;reason&quot;: &quot;Bypassed underwriting checks&quot;
+}
+</code></pre>
+<p>The server accepts the transition and returns status 200 with <code>status: &quot;DISBURSEMENT_READY&quot;</code>, qualifying the proposal for immediate loan disbursement.</p>
+
+          </div>
+        </div>
+
+        
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+            Vulnerable Code Snippet
+          </div>
+          <div class="code-container">
+            <div class="snippet-header">
+              <span>📄 services/credit-service/src/services/proposal_store.js : L114–127</span>
+              <button class="copy-btn" onclick="copySnippet(this)">
+                <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+                <span>Copy Code</span>
+              </button>
+            </div>
+            <div class="snippet-wrap">
+              <div class="snippet-gutter">114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+</div>
+              <pre><code class="language-javascript">    // Business logic vulnerability: omits strict state-machine transition guard validation
+    if (proposal.status === &#39;CANCELLED&#39;) {
+      throw new Error(&#39;Cannot update cancelled proposal&#39;);
+    }
+
+    proposal.status = newStatus;
+    proposal.history.push({
+      status: newStatus,
+      at: new Date().toISOString(),
+      note: reason || &#39;Status updated&#39;
+    });
+
+    this.proposals.set(id, proposal);</code></pre>
+            </div>
+          </div>
+        </div>
+        
+
+        
+        
+
+        
+        <div class="finding-action-bar">
+          <div class="cli-hint">
+            <span class="cli-hint-label">Remediate with CLI:</span>
+            <code>cm fix d97b0f23-31fe-59e7-b131-d062022fe6ba</code>
+            <button class="copy-inline-btn" onclick="copyText('cm fix d97b0f23-31fe-59e7-b131-d062022fe6ba', this)" title="Copy command">
+              <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+    
+    <article class="finding-card" data-severity="HIGH" data-status="OPEN">
+      <div class="finding-card-header" onclick="toggleCard(this)">
+        <div class="card-header-left">
+          <span class="severity-pill pill-high">
+            <span class="pill-dot"></span>
+            HIGH
+          </span>
+          <span class="status-pill status-open">OPEN</span>
+          
+          <h3 class="finding-title">Broken Object Level Authorization (BOLA/IDOR) in Account Statement Generation</h3>
+        </div>
+        <div class="card-header-right">
+          <code class="short-id">fa8592a7</code>
+          <span class="file-pill" title="services/core-banking/internal/service/banking.go">📄 services/core-banking/internal/service/banking.go:L135–149</span>
+          
+            <span class="confidence-pill" title="Detection Confidence">95% conf</span>
+          
+          <button class="chevron-btn" aria-label="Toggle details">
+            <svg class="chevron-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="finding-card-body">
+        
+        <div class="meta-grid">
+          <div class="meta-cell">
+            <span class="meta-k">Finding ID</span>
+            <span class="meta-v"><code>fa8592a7-3180-556a-a0fe-479cbf523fca</code></span>
+          </div>
+          <div class="meta-cell">
+            <span class="meta-k">File Path</span>
+            <span class="meta-v"><code>services/core-banking/internal/service/banking.go</code></span>
+          </div>
+          
+          <div class="meta-cell">
+            <span class="meta-k">Line Range</span>
+            <span class="meta-v">Lines 135 – 149</span>
+          </div>
+          
+          
+          <div class="meta-cell">
+            <span class="meta-k">Vulnerability ID / CWE</span>
+            <span class="meta-v"><code>CWE-639</code> (Authorization Bypass Through User-Controlled Key)</span>
+          </div>
+          
+          
+        </div>
+
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+            Security Analysis & Impact
+          </div>
+          <div class="analysis-content">
+            <p>Data Path Analysis:</p>
+<ul>
+<li>Source: Route <code>GET /api/v1/accounts/{id}/statement</code> receives the target account ID from the URL path and tenant identity from the <code>X-Customer-ID</code> request header.</li>
+<li>Sanitization/Validation: Although <code>customerID</code> is extracted in <code>HandleGetStatement</code> and passed into <code>GetStatement(customerID, accountID)</code>, <code>GetStatement</code> never checks <code>acc.CustomerID == customerID</code>.</li>
+<li>Sink: The method queries the repository for the account (<code>s.repo.GetAccountByID(accountID)</code>) and returns all transaction entries and balances for that account. Additionally, <code>statementCache</code> uses a global key <code>fmt.Sprintf(&quot;stmt:%s&quot;, accountID)</code> completely lacking customer/tenant scoping. Any caller with access to the API can inspect statements and sensitive financial records belonging to any other customer/tenant.</li>
+</ul>
+<p>Conceptual Exploit Payload:
+An unprivileged user (<code>cust_001</code> or <code>cust_002</code>) sends a request for corporate account <code>acc_1003</code> (belonging to <code>cust_003</code>):</p>
+<pre><code class="language-http">GET /api/v1/accounts/acc_1003/statement HTTP/1.1
+Host: localhost:8081
+X-Customer-ID: cust_001
+</code></pre>
+<p>The server returns 200 OK with the full transaction ledger and account balance (1,500,000.00 BRL) belonging to <code>cust_003</code>.</p>
+
+          </div>
+        </div>
+
+        
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+            Vulnerable Code Snippet
+          </div>
+          <div class="code-container">
+            <div class="snippet-header">
+              <span>📄 services/core-banking/internal/service/banking.go : L135–149</span>
+              <button class="copy-btn" onclick="copySnippet(this)">
+                <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+                <span>Copy Code</span>
+              </button>
+            </div>
+            <div class="snippet-wrap">
+              <div class="snippet-gutter">135
+136
+137
+138
+139
+140
+141
+142
+143
+144
+145
+146
+147
+148
+149
+</div>
+              <pre><code class="language-go">func (s *BankingService) GetStatement(customerID, accountID string) (*domain.Statement, error) {
+	cacheKey := fmt.Sprintf(&#34;stmt:%s&#34;, accountID)
+
+	s.cacheMu.RLock()
+	cached, found := s.statementCache[cacheKey]
+	s.cacheMu.RUnlock()
+	if found {
+		s.logger.Debug(&#34;serving statement from cache&#34;, &#34;cacheKey&#34;, cacheKey)
+		return cached, nil
+	}
+
+	acc, err := s.repo.GetAccountByID(accountID)
+	if err != nil {
+		return nil, err
+	}</code></pre>
+            </div>
+          </div>
+        </div>
+        
+
+        
+        
+
+        
+        <div class="finding-action-bar">
+          <div class="cli-hint">
+            <span class="cli-hint-label">Remediate with CLI:</span>
+            <code>cm fix fa8592a7-3180-556a-a0fe-479cbf523fca</code>
+            <button class="copy-inline-btn" onclick="copyText('cm fix fa8592a7-3180-556a-a0fe-479cbf523fca', this)" title="Copy command">
+              <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+    
+    <article class="finding-card" data-severity="HIGH" data-status="OPEN">
+      <div class="finding-card-header" onclick="toggleCard(this)">
+        <div class="card-header-left">
+          <span class="severity-pill pill-high">
+            <span class="pill-dot"></span>
+            HIGH
+          </span>
+          <span class="status-pill status-open">OPEN</span>
+          
+          <h3 class="finding-title">Concurrency Race Condition (TOCTOU) Allowing Double-Spending in Account Debit</h3>
+        </div>
+        <div class="card-header-right">
+          <code class="short-id">45590f4c</code>
+          <span class="file-pill" title="services/core-banking/internal/service/banking.go">📄 services/core-banking/internal/service/banking.go:L96–111</span>
+          
+            <span class="confidence-pill" title="Detection Confidence">100% conf</span>
+          
+          <button class="chevron-btn" aria-label="Toggle details">
+            <svg class="chevron-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="finding-card-body">
+        
+        <div class="meta-grid">
+          <div class="meta-cell">
+            <span class="meta-k">Finding ID</span>
+            <span class="meta-v"><code>45590f4c-f43f-5028-8488-40c19c70560f</code></span>
+          </div>
+          <div class="meta-cell">
+            <span class="meta-k">File Path</span>
+            <span class="meta-v"><code>services/core-banking/internal/service/banking.go</code></span>
+          </div>
+          
+          <div class="meta-cell">
+            <span class="meta-k">Line Range</span>
+            <span class="meta-v">Lines 96 – 111</span>
+          </div>
+          
+          
+          <div class="meta-cell">
+            <span class="meta-k">Vulnerability ID / CWE</span>
+            <span class="meta-v"><code>CWE-362</code> (Concurrent Execution using Shared Resource with Improper Synchronization)</span>
+          </div>
+          
+          
+        </div>
+
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+            Security Analysis & Impact
+          </div>
+          <div class="analysis-content">
+            <p>Data Path Analysis:</p>
+<ul>
+<li>Source: HTTP POST endpoint <code>/api/v1/accounts/debit</code> handled in <code>services/core-banking/internal/handler/http.go:HandleDebit</code> reads JSON input (<code>accountId</code>, <code>amount</code>, <code>description</code>, <code>referenceId</code>) and calls <code>bankingSvc.Debit()</code>.</li>
+<li>Sanitization/Validation: At lines 97-100, the method checks <code>if acc.Balance &lt; amount</code>. However, this read-and-check operation is performed without acquiring a mutex or performing an atomic database compare-and-swap / transaction isolation lock.</li>
+<li>Sink: At line 103, an artificial ledger delay <code>time.Sleep(15 * time.Millisecond)</code> occurs between reading the balance and updating it (<code>newBalance := acc.Balance - amount</code>, <code>s.repo.UpdateAccount(acc)</code>). Because Go's HTTP server handles each request in a concurrent goroutine, multiple requests sent in parallel can pass the liquidity check before any one request commits the deducted balance, causing double-spending and draining account balances beyond allowed limits.</li>
+</ul>
+<p>Conceptual Exploit Payload:
+Send two or more concurrent HTTP requests in parallel for an account with balance 1250.00:</p>
+<pre><code class="language-http">POST /api/v1/accounts/debit HTTP/1.1
+Host: localhost:8081
+Content-Type: application/json
+
+{
+  &quot;accountId&quot;: &quot;acc_1002&quot;,
+  &quot;amount&quot;: 1000.0,
+  &quot;description&quot;: &quot;Exploit Debit 1&quot;,
+  &quot;referenceId&quot;: &quot;ref_race_1&quot;
+}
+</code></pre>
+<p>and concurrently:</p>
+<pre><code class="language-http">POST /api/v1/accounts/debit HTTP/1.1
+Host: localhost:8081
+Content-Type: application/json
+
+{
+  &quot;accountId&quot;: &quot;acc_1002&quot;,
+  &quot;amount&quot;: 1000.0,
+  &quot;description&quot;: &quot;Exploit Debit 2&quot;,
+  &quot;referenceId&quot;: &quot;ref_race_2&quot;
+}
+</code></pre>
+<p>Both goroutines observe <code>acc.Balance == 1250.0 &gt;= 1000.0</code> during the 15ms window, and both proceed to debit, resulting in a total of 2000.0 debited from an account holding only 1250.0.</p>
+
+          </div>
+        </div>
+
+        
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+            Vulnerable Code Snippet
+          </div>
+          <div class="code-container">
+            <div class="snippet-header">
+              <span>📄 services/core-banking/internal/service/banking.go : L96–111</span>
+              <button class="copy-btn" onclick="copySnippet(this)">
+                <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+                <span>Copy Code</span>
+              </button>
+            </div>
+            <div class="snippet-wrap">
+              <div class="snippet-gutter">96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+</div>
+              <pre><code class="language-go">	// Liquidity check: verify sufficient available balance
+	if acc.Balance &lt; amount {
+		s.logger.Warn(&#34;insufficient funds for debit&#34;, &#34;accountId&#34;, accountID, &#34;balance&#34;, acc.Balance, &#34;requested&#34;, amount)
+		return nil, domain.ErrInsufficientBalance
+	}
+
+	// Simulate ledger rail verification delay
+	time.Sleep(15 * time.Millisecond)
+
+	// Update computed balance
+	newBalance := acc.Balance - amount
+	acc.Balance = newBalance
+
+	if err := s.repo.UpdateAccount(acc); err != nil {
+		return nil, err
+	}</code></pre>
+            </div>
+          </div>
+        </div>
+        
+
+        
+        
+
+        
+        <div class="finding-action-bar">
+          <div class="cli-hint">
+            <span class="cli-hint-label">Remediate with CLI:</span>
+            <code>cm fix 45590f4c-f43f-5028-8488-40c19c70560f</code>
+            <button class="copy-inline-btn" onclick="copyText('cm fix 45590f4c-f43f-5028-8488-40c19c70560f', this)" title="Copy command">
+              <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+    
+    <article class="finding-card" data-severity="HIGH" data-status="OPEN">
+      <div class="finding-card-header" onclick="toggleCard(this)">
+        <div class="card-header-left">
+          <span class="severity-pill pill-high">
+            <span class="pill-dot"></span>
+            HIGH
+          </span>
+          <span class="status-pill status-open">OPEN</span>
+          
+          <h3 class="finding-title">JWT Key Confusion / Algorithm Confusion Vulnerability (RS256 to HS256)</h3>
+        </div>
+        <div class="card-header-right">
+          <code class="short-id">276b63cf</code>
+          <span class="file-pill" title="services/identity-service/src/services/jwt_service.js">📄 services/identity-service/src/services/jwt_service.js:L63–70</span>
+          
+            <span class="confidence-pill" title="Detection Confidence">95% conf</span>
+          
+          <button class="chevron-btn" aria-label="Toggle details">
+            <svg class="chevron-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="finding-card-body">
+        
+        <div class="meta-grid">
+          <div class="meta-cell">
+            <span class="meta-k">Finding ID</span>
+            <span class="meta-v"><code>276b63cf-4d5c-5979-86de-6084e3d4f36c</code></span>
+          </div>
+          <div class="meta-cell">
+            <span class="meta-k">File Path</span>
+            <span class="meta-v"><code>services/identity-service/src/services/jwt_service.js</code></span>
+          </div>
+          
+          <div class="meta-cell">
+            <span class="meta-k">Line Range</span>
+            <span class="meta-v">Lines 63 – 70</span>
+          </div>
+          
+          
+          <div class="meta-cell">
+            <span class="meta-k">Vulnerability ID / CWE</span>
+            <span class="meta-v"><code>CWE-347</code> (Improper Verification of Cryptographic Signature)</span>
+          </div>
+          
+          
+        </div>
+
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+            Security Analysis & Impact
+          </div>
+          <div class="analysis-content">
+            <p>Data Path Analysis:</p>
+<ul>
+<li>Source: Route <code>POST /api/v1/auth/verify</code> receives <code>body.token</code> from untrusted client HTTP requests and passes it to <code>jwtService.verifyToken(body.token)</code>.</li>
+<li>Sanitization/Validation: <code>verifyToken</code> decodes <code>header.alg</code> directly from the untrusted token without enforcing an expected algorithm whitelist or restricting tokens to asymmetric RS256 signatures.</li>
+<li>Sink: At lines 63-70, if <code>header.alg === 'HS256'</code>, the service verifies the token using <code>crypto.createHmac('sha256', this.publicKeyPEM)</code>, treating the public RSA PEM key string as the HMAC secret key. An attacker who obtains or knows the public key can craft and sign arbitrary tokens with HS256, forging any claims/roles (e.g. elevating privileges to enterprise admin) that pass signature verification.</li>
+</ul>
+<p>Conceptual Exploit Payload:</p>
+<ol>
+<li>Construct a header with <code>&quot;alg&quot;: &quot;HS256&quot;</code>, <code>&quot;typ&quot;: &quot;JWT&quot;</code>.</li>
+<li>Construct payload with arbitrary claims:</li>
+</ol>
+<pre><code class="language-json">{
+  &quot;sub&quot;: &quot;cust_001&quot;,
+  &quot;name&quot;: &quot;Attacker&quot;,
+  &quot;tier&quot;: &quot;TIER_ENTERPRISE&quot;,
+  &quot;role&quot;: &quot;admin&quot;,
+  &quot;exp&quot;: 1999999999
+}
+</code></pre>
+<ol start="3">
+<li>Sign <code>base64url(header) + &quot;.&quot; + base64url(payload)</code> using HMAC-SHA256 with the server's public key string as the HMAC key.</li>
+<li>Send verification request:</li>
+</ol>
+<pre><code class="language-http">POST /api/v1/auth/verify HTTP/1.1
+Host: localhost:8082
+Content-Type: application/json
+
+{
+  &quot;token&quot;: &quot;eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.&lt;base64url_payload&gt;.&lt;forged_hmac_signature&gt;&quot;
+}
+</code></pre>
+
+          </div>
+        </div>
+
+        
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+            Vulnerable Code Snippet
+          </div>
+          <div class="code-container">
+            <div class="snippet-header">
+              <span>📄 services/identity-service/src/services/jwt_service.js : L63–70</span>
+              <button class="copy-btn" onclick="copySnippet(this)">
+                <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+                <span>Copy Code</span>
+              </button>
+            </div>
+            <div class="snippet-wrap">
+              <div class="snippet-gutter">63
+64
+65
+66
+67
+68
+69
+70
+71
+</div>
+              <pre><code class="language-javascript">    if (header.alg === &#39;HS256&#39;) {
+      // Key confusion flaw: uses public key string as HMAC secret key
+      const hmac = crypto.createHmac(&#39;sha256&#39;, this.publicKeyPEM);
+      hmac.update(dataToSign);
+      const computedSig = hmac.digest(&#39;base64url&#39;);
+      if (computedSig !== signature) {
+        throw new Error(&#39;Invalid HMAC signature&#39;);
+      }
+    }</code></pre>
+            </div>
+          </div>
+        </div>
+        
+
+        
+        
+
+        
+        <div class="finding-action-bar">
+          <div class="cli-hint">
+            <span class="cli-hint-label">Remediate with CLI:</span>
+            <code>cm fix 276b63cf-4d5c-5979-86de-6084e3d4f36c</code>
+            <button class="copy-inline-btn" onclick="copyText('cm fix 276b63cf-4d5c-5979-86de-6084e3d4f36c', this)" title="Copy command">
+              <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+    
+    <article class="finding-card" data-severity="HIGH" data-status="OPEN">
+      <div class="finding-card-header" onclick="toggleCard(this)">
+        <div class="card-header-left">
+          <span class="severity-pill pill-high">
+            <span class="pill-dot"></span>
+            HIGH
+          </span>
+          <span class="status-pill status-open">OPEN</span>
+          
+          <h3 class="finding-title">Prototype Pollution via Unsanitized Object Key Recursion in deepMerge</h3>
+        </div>
+        <div class="card-header-right">
+          <code class="short-id">6f973a0d</code>
+          <span class="file-pill" title="services/identity-service/src/utils/merge.js">📄 services/identity-service/src/utils/merge.js:L10–20</span>
+          
+            <span class="confidence-pill" title="Detection Confidence">100% conf</span>
+          
+          <button class="chevron-btn" aria-label="Toggle details">
+            <svg class="chevron-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="finding-card-body">
+        
+        <div class="meta-grid">
+          <div class="meta-cell">
+            <span class="meta-k">Finding ID</span>
+            <span class="meta-v"><code>6f973a0d-ccc8-5b71-9547-50938a0bb64a</code></span>
+          </div>
+          <div class="meta-cell">
+            <span class="meta-k">File Path</span>
+            <span class="meta-v"><code>services/identity-service/src/utils/merge.js</code></span>
+          </div>
+          
+          <div class="meta-cell">
+            <span class="meta-k">Line Range</span>
+            <span class="meta-v">Lines 10 – 20</span>
+          </div>
+          
+          
+          <div class="meta-cell">
+            <span class="meta-k">Vulnerability ID / CWE</span>
+            <span class="meta-v"><code>CWE-1321</code> (Prototype Pollution)</span>
+          </div>
+          
+          
+        </div>
+
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+            Security Analysis & Impact
+          </div>
+          <div class="analysis-content">
+            <p>Data Path Analysis:</p>
+<ul>
+<li>Source: In <code>services/identity-service/src/index.js</code>, the endpoint <code>PATCH /api/v1/customers/:id/profile</code> receives untrusted JSON updates from the request body and forwards them to <code>customerStore.updateProfile(customerId, body)</code>.</li>
+<li>Sanitization/Validation: <code>deepMerge</code> does not filter dangerous keys such as <code>__proto__</code>, <code>constructor</code>, or <code>prototype</code>.</li>
+<li>Sink: When <code>key</code> is <code>&quot;__proto__&quot;</code>, accessing <code>target[key]</code> evaluates to <code>Object.prototype</code>. The recursive call <code>deepMerge(target[key], val)</code> then assigns properties directly onto <code>Object.prototype</code> at line 18 (<code>target[key] = val</code>), polluting global prototype properties across the Node.js runtime.</li>
+</ul>
+<p>Conceptual Exploit Payload:
+Send an HTTP PATCH request with a crafted JSON payload targeting <code>__proto__</code>:</p>
+<pre><code class="language-http">PATCH /api/v1/customers/cust_001/profile HTTP/1.1
+Host: localhost:8082
+Content-Type: application/json
+
+{
+  &quot;__proto__&quot;: {
+    &quot;polluted&quot;: true,
+    &quot;isAdmin&quot;: true
+  }
+}
+</code></pre>
+<p>Following this request, <code>({}).polluted === true</code> and <code>({}).isAdmin === true</code> in the application environment, allowing authorization bypass, denial of service, or further exploitation.</p>
+
+          </div>
+        </div>
+
+        
+        
+        <div class="finding-section">
+          <div class="section-heading">
+            <svg class="heading-icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+            Vulnerable Code Snippet
+          </div>
+          <div class="code-container">
+            <div class="snippet-header">
+              <span>📄 services/identity-service/src/utils/merge.js : L10–20</span>
+              <button class="copy-btn" onclick="copySnippet(this)">
+                <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+                <span>Copy Code</span>
+              </button>
+            </div>
+            <div class="snippet-wrap">
+              <div class="snippet-gutter">10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+</div>
+              <pre><code class="language-javascript">  for (const key of Object.keys(source)) {
+    const val = source[key];
+    if (val &amp;&amp; typeof val === &#39;object&#39; &amp;&amp; !Array.isArray(val)) {
+      if (!target[key] || typeof target[key] !== &#39;object&#39;) {
+        target[key] = {};
+      }
+      deepMerge(target[key], val);
+    } else {
+      target[key] = val;
+    }
+  }</code></pre>
+            </div>
+          </div>
+        </div>
+        
+
+        
+        
+
+        
+        <div class="finding-action-bar">
+          <div class="cli-hint">
+            <span class="cli-hint-label">Remediate with CLI:</span>
+            <code>cm fix 6f973a0d-ccc8-5b71-9547-50938a0bb64a</code>
+            <button class="copy-inline-btn" onclick="copyText('cm fix 6f973a0d-ccc8-5b71-9547-50938a0bb64a', this)" title="Copy command">
+              <svg class="copy-icon" viewBox="0 0 20 20"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+    
+  </div>
+  
+
+  <div id="noMatchesState" class="empty-state" style="display:none;">
+    <div class="empty-icon">🔍</div>
+    <div class="empty-title">No Matching Findings</div>
+    <div class="empty-desc">No findings matched your search and filter criteria. Try adjusting or resetting filters.</div>
+    <button class="btn-secondary" style="margin-top:14px;" onclick="resetAllFilters()">Reset Filters</button>
+  </div>
+
+  
+  
+  <div class="sessions-section">
+    <details class="sessions-details">
+      <summary>
+        <div class="summary-left">
+          <svg style="width:16px;height:16px;fill:#64748b;" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg>
+          <span>Session History</span>
+          <span class="sessions-count">1</span>
+        </div>
+        <svg class="chevron-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+      </summary>
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr><th>Session ID</th><th>Type</th><th>Mode</th><th>Status</th><th>Target</th><th>Created</th></tr>
+          </thead>
+          <tbody>
+          
+            <tr>
+              <td><code>ChAwZWUy</code></td>
+              <td><span class="badge-type">FIND</span></td>
+              <td><span class="badge-mode">SCAN</span></td>
+              <td><span class="badge-status">COMPLETED</span></td>
+              <td><code class="target-path" title="...mbal-fintech-core/cymbal-fintech-core">...mbal-fintech-core/cymbal-fintech-core</code></td>
+              <td class="time-cell">2026-09-30T18:37:31</td>
+            </tr>
+          
+          </tbody>
+        </table>
+      </div>
+    </details>
+  </div>
+  
+</div>
+
+<footer>
+  <p>🔒 <strong>CodeMender</strong> &middot; Automated Security Analysis &middot; Generated at 2026-09-30 19:08:26 UTC</p>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  
+  hljs.highlightAll();
+
+  
+  let currentSeverity = 'ALL';
+  let currentStatus = 'ALL';
+
+  function applyFilters() {
+    const query = document.getElementById('searchInput').value.toLowerCase().trim();
+    const clearBtn = document.getElementById('clearSearch');
+    clearBtn.style.display = query ? 'block' : 'none';
+
+    const cards = document.querySelectorAll('.finding-card');
+    let visibleCount = 0;
+
+    cards.forEach(card => {
+      const cardSev = card.getAttribute('data-severity') || '';
+      const cardStatus = card.getAttribute('data-status') || '';
+      const text = card.textContent.toLowerCase();
+
+      const matchesSev = (currentSeverity === 'ALL' || cardSev === currentSeverity);
+      const matchesStatus = (currentStatus === 'ALL' || cardStatus === currentStatus);
+      const matchesQuery = (!query || text.includes(query));
+
+      if (matchesSev && matchesStatus && matchesQuery) {
+        card.style.display = '';
+        visibleCount++;
+      } else {
+        card.style.display = 'none';
+      }
+    });
+
+    const noMatches = document.getElementById('noMatchesState');
+    if (noMatches) {
+      noMatches.style.display = (visibleCount === 0 && cards.length > 0) ? 'block' : 'none';
+    }
+
+    const statusBar = document.getElementById('filterStatusBar');
+    const statusText = document.getElementById('filterStatusText');
+    const isFiltered = (currentSeverity !== 'ALL' || currentStatus !== 'ALL' || query !== '');
+
+    if (statusBar && statusText) {
+      if (isFiltered) {
+        statusBar.style.display = 'flex';
+        statusText.textContent = 'Showing ' + visibleCount + ' of ' + cards.length + ' findings';
+      } else {
+        statusBar.style.display = 'none';
+      }
+    }
+  }
+
+  function setSeverityFilter(sev) {
+    currentSeverity = sev;
+    document.querySelectorAll('#severityFilters .pill-btn').forEach(btn => {
+      if (btn.getAttribute('data-severity') === sev) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+    
+    document.querySelectorAll('.metric-card').forEach(c => c.classList.remove('active-filter'));
+    if (sev !== 'ALL') {
+      const targetCard = document.querySelector('.metric-card.' + sev.toLowerCase());
+      if (targetCard) targetCard.classList.add('active-filter');
+    }
+    applyFilters();
+  }
+
+  function setStatusFilter(status) {
+    currentStatus = status;
+    document.querySelectorAll('#statusFilters .pill-btn').forEach(btn => {
+      if (btn.getAttribute('data-status') === status) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+    applyFilters();
+  }
+
+  function clearSearchInput() {
+    const input = document.getElementById('searchInput');
+    input.value = '';
+    applyFilters();
+    input.focus();
+  }
+
+  function resetAllFilters() {
+    document.getElementById('searchInput').value = '';
+    setSeverityFilter('ALL');
+    setStatusFilter('ALL');
+  }
+
+  function toggleCard(header) {
+    const card = header.closest('.finding-card');
+    if (card) {
+      card.classList.toggle('collapsed');
+    }
+  }
+
+  function expandAllCards() {
+    document.querySelectorAll('.finding-card').forEach(card => card.classList.remove('collapsed'));
+  }
+
+  function collapseAllCards() {
+    document.querySelectorAll('.finding-card').forEach(card => card.classList.add('collapsed'));
+  }
+
+  function copySnippet(btn) {
+    const card = btn.closest('.finding-card');
+    const code = card.querySelector('.snippet-wrap pre code');
+    if (code) {
+      navigator.clipboard.writeText(code.innerText).then(() => {
+        const span = btn.querySelector('span');
+        const orig = span.textContent;
+        span.textContent = 'Copied!';
+        setTimeout(() => { span.textContent = orig; }, 2000);
+      });
+    }
+  }
+
+  function copyDiff(btn) {
+    const container = btn.closest('.diff-container');
+    const diffPre = container.querySelector('.diff-pre');
+    if (diffPre) {
+      navigator.clipboard.writeText(diffPre.innerText).then(() => {
+        const span = btn.querySelector('span');
+        const orig = span.textContent;
+        span.textContent = 'Copied!';
+        setTimeout(() => { span.textContent = orig; }, 2000);
+      });
+    }
+  }
+
+  function copyText(text, btn) {
+    navigator.clipboard.writeText(text).then(() => {
+      const origTitle = btn.getAttribute('title');
+      btn.setAttribute('title', 'Copied!');
+      setTimeout(() => { btn.setAttribute('title', origTitle); }, 2000);
+    });
+  }
+</script>
+</body>
+</html>
