@@ -107,12 +107,9 @@ jobs:
           FINDINGS_JSON="reports/findings.json"
           APPLY_FIX="${{ github.event.inputs.apply_fixes != 'false' }}"
 
-          # Setup summary report markdown for PR body
           mkdir -p reports
-          cat << 'EOF' > reports/summary.md
-| Finding ID | Title / Vulnerability | Severity | Exploit Verification (`cm verify`) | Remediation (`cm fix`) |
-| :--- | :--- | :--- | :--- | :--- |
-EOF
+          echo "| Finding ID | Title / Vulnerability | Severity | Exploit Verification (\`cm verify\`) | Remediation (\`cm fix\`) |" > reports/summary.md
+          echo "| :--- | :--- | :--- | :--- | :--- |" >> reports/summary.md
 
           if [ ! -s "$FINDINGS_JSON" ] || ! jq -e '.findings' "$FINDINGS_JSON" >/dev/null 2>&1; then
             echo "No findings recorded in JSON report."
@@ -120,7 +117,6 @@ EOF
             exit 0
           fi
 
-          # Parse finding IDs that are not already fixed
           FINDING_IDS=$(jq -r '.findings[]? | select(.status != "fixed") | .id' "$FINDINGS_JSON" | grep -v '^$' || true)
 
           if [ -z "$FINDING_IDS" ]; then
@@ -143,7 +139,6 @@ EOF
             VERIFY_STATUS="SKIPPED"
             FIX_STATUS="SKIPPED"
 
-            # Execute verification
             echo "==> Executing: cm verify $fid"
             if cm verify "$fid" --unrestricted --bypass-warning -y; then
               VERIFY_STATUS="✅ Confirmed (Exploitable)"
@@ -151,7 +146,6 @@ EOF
               VERIFY_STATUS="⚠️ Unverified"
             fi
 
-            # Execute remediation if enabled
             if [ "$APPLY_FIX" = "true" ]; then
               echo "==> Executing: cm fix $fid"
               if cm fix "$fid" --unrestricted --bypass-warning -y; then
@@ -164,8 +158,8 @@ EOF
             echo "| \`$fid\` | $TITLE | $SEVERITY | $VERIFY_STATUS | $FIX_STATUS |" >> reports/summary.md
           done
 
-      # 9. Generate SARIF and HTML audit reports
-      - name: Generate Audit Reports & Patch
+      # 9. Generate SARIF, HTML audit reports and PR description
+      - name: Generate Audit Reports & PR Body
         if: always()
         run: |
           mkdir -p reports
@@ -180,6 +174,33 @@ EOF
 
           echo "==> Generating git diff patch..."
           git diff > reports/codemender-changes.patch 2>/dev/null || true
+
+          echo "==> Composing Pull Request markdown description..."
+          {
+            echo "## 🛡️ CodeMender Automated Security Remediation"
+            echo ""
+            echo "This Pull Request was autonomously prepared by **Google CodeMender (\`cm\`)** after scanning, verifying exploitability, and synthesizing code fixes for detected vulnerabilities."
+            echo ""
+            echo "> [!IMPORTANT]"
+            echo "> **Human Review Required:** This PR is deliberately **not** auto-approved and will **not** be auto-merged. A member of the development/security team must review the proposed diffs, verify application tests, and approve this Pull Request manually."
+            echo ""
+            echo "---"
+            echo ""
+            echo "### 📋 Vulnerability Verification & Remediation Summary"
+            echo ""
+            if [ -f reports/summary.md ]; then
+              cat reports/summary.md
+            else
+              echo "No summary table generated."
+            fi
+            echo ""
+            echo "---"
+            echo ""
+            echo "### 📊 Execution & Artifact References"
+            echo "- 🔗 **GitHub Actions Run**: [View Run #${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+            echo "- 📦 **Download SARIF & HTML Reports**: Access the [\`codemender-reports-run-${{ github.run_number }}\` artifact bundle](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)"
+            echo "- 📄 **Raw Patch File**: Available inside the artifact bundle as \`reports/codemender-changes.patch\`."
+          } > reports/pr_body.md
 
       # 10. Upload security reports and artifacts to GitHub Actions
       - name: Upload Security Reports & Artifacts
@@ -204,26 +225,7 @@ EOF
           delete-branch: true
           title: "fix(security): CodeMender automated remediation"
           base: ${{ github.event.inputs.base_branch || 'main' }}
-          body: |
-            ## 🛡️ CodeMender Automated Security Remediation
-
-            This Pull Request was autonomously prepared by **Google CodeMender (`cm`)** after scanning, verifying exploitability, and synthesizing code fixes for detected vulnerabilities.
-
-            > [!IMPORTANT]
-            > **Human Review Required:** This PR is deliberately **not** auto-approved and will **not** be auto-merged. A member of the development/security team must review the proposed diffs, verify application tests, and approve this Pull Request manually.
-
-            ---
-
-            ### 📋 Vulnerability Verification & Remediation Summary
-
-            $([ -f reports/summary.md ] && cat reports/summary.md || echo "No findings summary table generated.")
-
-            ---
-
-            ### 📊 Execution & Artifact References
-            - 🔗 **GitHub Actions Run**: [View Run #${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-            - 📦 **Download SARIF & HTML Reports**: Access the [`codemender-reports-run-${{ github.run_number }}` artifact bundle](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)
-            - 📄 **Raw Patch File**: Available inside the artifact bundle as `reports/codemender-changes.patch`.
+          body-path: reports/pr_body.md
           labels: |
             security
             codemender
