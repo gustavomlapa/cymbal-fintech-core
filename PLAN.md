@@ -11,3 +11,9 @@
 - [x] Implement Cloud Run deployment script `scripts/deploy-cloudrun.sh` with GCP `gcloud` commands and configuration guide.
 - [x] Write comprehensive enterprise documentation in `README.md` showcasing architecture, microservices topology, and run guides.
 - [x] Verify all services with unit tests, health check endpoints, and local startup validation.
+
+## CodeMender CI/CD Automation (WIF & PR Review)
+- [x] Create `scripts/setup-codemender-gcp.sh` to automate GCP Service Account and Workload Identity Federation (WIF) setup.
+- [x] Create `docs/CODEMENDER_SETUP.md` with step-by-step guidance for configuring GitHub repository variables and executing the workflow.
+- [x] Implement `.github/workflows/codemender.yml` with OIDC authentication, CodeMender CLI installation, finding iteration with `cm verify` & `cm fix`, artifacts upload, and automated Pull Request creation referencing artifacts.
+- [x] Validate bash scripts and workflow configuration.

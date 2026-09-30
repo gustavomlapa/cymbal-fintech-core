@@ -1,0 +1,231 @@
+name: CodeMender Security Audit & Remediation
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply_fixes:
+        description: 'Run cm fix and propose Pull Request for verified findings'
+        type: boolean
+        required: false
+        default: true
+      base_branch:
+        description: 'Target base branch for Pull Request'
+        type: string
+        required: false
+        default: 'main'
+  schedule:
+    # Optional: Run weekly security audit every Monday at 04:00 UTC
+    - cron: '0 4 * * 1'
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+concurrency:
+  group: codemender-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  codemender:
+    name: CodeMender Audit & Remediation
+    runs-on: ubuntu-latest
+
+    env:
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
+      GCP_WIF_PROVIDER: ${{ vars.GCP_WIF_PROVIDER || secrets.GCP_WIF_PROVIDER }}
+      GCP_WIF_SERVICE_ACCOUNT: ${{ vars.GCP_WIF_SERVICE_ACCOUNT || secrets.GCP_WIF_SERVICE_ACCOUNT }}
+      CLOUDSDK_CORE_PROJECT: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
+      GOOGLE_CLOUD_PROJECT: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
+
+    steps:
+      # 1. Checkout repository source code
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 2. Validate GCP Configuration Variables
+      - name: Validate GCP WIF Variables
+        run: |
+          if [ -z "$GCP_PROJECT_ID" ] || [ -z "$GCP_WIF_PROVIDER" ] || [ -z "$GCP_WIF_SERVICE_ACCOUNT" ]; then
+            echo "::error::Missing required Google Cloud WIF configuration variables."
+            echo "Please configure GCP_PROJECT_ID, GCP_WIF_PROVIDER, and GCP_WIF_SERVICE_ACCOUNT in Settings > Secrets and variables > Actions."
+            echo "Refer to docs/CODEMENDER_SETUP.md for full provisioning instructions."
+            exit 1
+          fi
+          echo "GCP Configuration validated successfully for project: $GCP_PROJECT_ID"
+
+      # 3. Authenticate to Google Cloud via Workload Identity Federation (Keyless / OIDC)
+      - name: Authenticate to Google Cloud (WIF / Keyless)
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
+          service_account: ${{ env.GCP_WIF_SERVICE_ACCOUNT }}
+          export_environment_variables: true
+          create_credentials_file: true
+
+      # 4. Set up Google Cloud SDK
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      # 5. Install CodeMender CLI (cm)
+      - name: Download & Install CodeMender CLI
+        run: |
+          echo "==> Downloading CodeMender CLI binary for Linux x86_64..."
+          curl -sSL -o cm-linux-amd64.zip "https://artifactregistry.googleapis.com/download/v1/projects/cmoc-prod/locations/us/repositories/codemender-cli-production/files/cm%3Astable%3Acm-linux-amd64.zip:download?alt=media"
+          unzip -q cm-linux-amd64.zip
+          chmod +x cm
+          sudo mv cm /usr/local/bin/cm
+          echo "CodeMender CLI installed at: $(which cm)"
+          cm --version || true
+
+      # 6. Initialize CodeMender workspace and verify connectivity
+      - name: Initialize CodeMender Workspace
+        run: |
+          echo "==> Initializing .codemender configuration..."
+          cm init
+          echo "==> Verifying cloud reasoning connectivity..."
+          cm init --verify
+
+      # 7. Vulnerability Discovery (cm find)
+      - name: Scan Codebase (cm find)
+        id: cm-scan
+        run: |
+          mkdir -p reports
+          echo "==> Running CodeMender vulnerability scanner across repository..."
+          cm find . --compact || true
+
+          echo "==> Exporting discovered findings..."
+          cm report -f json > reports/findings.json 2>/dev/null || echo '{"findings":[]}' > reports/findings.json
+
+      # 8. Loop through findings: execute cm verify and cm fix
+      - name: Verify Exploitability and Apply Remediation Loop
+        id: cm-remediate
+        run: |
+          FINDINGS_JSON="reports/findings.json"
+          APPLY_FIX="${{ github.event.inputs.apply_fixes != 'false' }}"
+
+          # Setup summary report markdown for PR body
+          mkdir -p reports
+          cat << 'EOF' > reports/summary.md
+| Finding ID | Title / Vulnerability | Severity | Exploit Verification (`cm verify`) | Remediation (`cm fix`) |
+| :--- | :--- | :--- | :--- | :--- |
+EOF
+
+          if [ ! -s "$FINDINGS_JSON" ] || ! jq -e '.findings' "$FINDINGS_JSON" >/dev/null 2>&1; then
+            echo "No findings recorded in JSON report."
+            echo "| - | Nenhum finding detectado | - | - | - |" >> reports/summary.md
+            exit 0
+          fi
+
+          # Parse finding IDs that are not already fixed
+          FINDING_IDS=$(jq -r '.findings[]? | select(.status != "fixed") | .id' "$FINDINGS_JSON" | grep -v '^$' || true)
+
+          if [ -z "$FINDING_IDS" ]; then
+            echo "No open findings discovered to verify or fix."
+            echo "| - | Nenhuma vulnerabilidade em aberto encontrada | - | - | - |" >> reports/summary.md
+            exit 0
+          fi
+
+          echo "Found open finding IDs:"
+          echo "$FINDING_IDS"
+
+          for fid in $FINDING_IDS; do
+            echo "--------------------------------------------------------"
+            echo "Processing Finding ID: $fid"
+            echo "--------------------------------------------------------"
+
+            TITLE=$(jq -r --arg id "$fid" '.findings[]? | select(.id == $id) | .title // .type // "Security Flaw"' "$FINDINGS_JSON" | head -n 1 | tr '|' '/')
+            SEVERITY=$(jq -r --arg id "$fid" '.findings[]? | select(.id == $id) | .severity // "UNKNOWN"' "$FINDINGS_JSON" | head -n 1)
+
+            VERIFY_STATUS="SKIPPED"
+            FIX_STATUS="SKIPPED"
+
+            # Execute verification
+            echo "==> Executing: cm verify $fid"
+            if cm verify "$fid" --unrestricted --bypass-warning -y; then
+              VERIFY_STATUS="✅ Confirmed (Exploitable)"
+            else
+              VERIFY_STATUS="⚠️ Unverified"
+            fi
+
+            # Execute remediation if enabled
+            if [ "$APPLY_FIX" = "true" ]; then
+              echo "==> Executing: cm fix $fid"
+              if cm fix "$fid" --unrestricted --bypass-warning -y; then
+                FIX_STATUS="✅ Patched"
+              else
+                FIX_STATUS="❌ Fix Failed"
+              fi
+            fi
+
+            echo "| \`$fid\` | $TITLE | $SEVERITY | $VERIFY_STATUS | $FIX_STATUS |" >> reports/summary.md
+          done
+
+      # 9. Generate SARIF and HTML audit reports
+      - name: Generate Audit Reports & Patch
+        if: always()
+        run: |
+          mkdir -p reports
+          echo "==> Generating SARIF report..."
+          cm report -f sarif > reports/codemender.sarif 2>/dev/null || true
+
+          echo "==> Generating HTML report..."
+          cm report -f html 2>/dev/null || true
+          if [ -d "$HOME/.codemender/reports" ]; then
+            cp -r "$HOME/.codemender/reports"/* reports/ 2>/dev/null || true
+          fi
+
+          echo "==> Generating git diff patch..."
+          git diff > reports/codemender-changes.patch 2>/dev/null || true
+
+      # 10. Upload security reports and artifacts to GitHub Actions
+      - name: Upload Security Reports & Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codemender-reports-run-${{ github.run_number }}
+          path: |
+            reports/
+            .codemender/
+          retention-days: 14
+
+      # 11. Propose Pull Request for Human Review (No auto-merge / no auto-approve)
+      - name: Create Remediation Pull Request for Human Review
+        if: ${{ github.event.inputs.apply_fixes != 'false' }}
+        id: cpr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "fix(security): apply automated CodeMender security remediation"
+          branch: "codemender/remediation-run-${{ github.run_number }}"
+          delete-branch: true
+          title: "fix(security): CodeMender automated remediation"
+          base: ${{ github.event.inputs.base_branch || 'main' }}
+          body: |
+            ## 🛡️ CodeMender Automated Security Remediation
+
+            This Pull Request was autonomously prepared by **Google CodeMender (`cm`)** after scanning, verifying exploitability, and synthesizing code fixes for detected vulnerabilities.
+
+            > [!IMPORTANT]
+            > **Human Review Required:** This PR is deliberately **not** auto-approved and will **not** be auto-merged. A member of the development/security team must review the proposed diffs, verify application tests, and approve this Pull Request manually.
+
+            ---
+
+            ### 📋 Vulnerability Verification & Remediation Summary
+
+            $([ -f reports/summary.md ] && cat reports/summary.md || echo "No findings summary table generated.")
+
+            ---
+
+            ### 📊 Execution & Artifact References
+            - 🔗 **GitHub Actions Run**: [View Run #${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            - 📦 **Download SARIF & HTML Reports**: Access the [`codemender-reports-run-${{ github.run_number }}` artifact bundle](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)
+            - 📄 **Raw Patch File**: Available inside the artifact bundle as `reports/codemender-changes.patch`.
+          labels: |
+            security
+            codemender
+            automated-pr
+            needs-review
