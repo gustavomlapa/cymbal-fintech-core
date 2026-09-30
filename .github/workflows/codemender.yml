@@ -13,6 +13,10 @@ on:
         type: string
         required: false
         default: 'main'
+  push:
+    branches:
+      - pr-auto-review
+      - main
   schedule:
     # Optional: Run weekly security audit every Monday at 04:00 UTC
     - cron: '0 4 * * 1'
