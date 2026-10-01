@@ -1,0 +1,231 @@
+name: CodeMender PR Review & Inline Suggestions
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+
+concurrency:
+  group: codemender-pr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pr-review:
+    name: CodeMender PR Security Review
+    runs-on: ubuntu-latest
+
+    env:
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
+      GCP_WIF_PROVIDER: ${{ vars.GCP_WIF_PROVIDER || secrets.GCP_WIF_PROVIDER }}
+      GCP_WIF_SERVICE_ACCOUNT: ${{ vars.GCP_WIF_SERVICE_ACCOUNT || secrets.GCP_WIF_SERVICE_ACCOUNT }}
+      CLOUDSDK_CORE_PROJECT: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
+      GOOGLE_CLOUD_PROJECT: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
+
+    steps:
+      # 1. Checkout repository with full history to compare branch diffs
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 2. Identify only modified source files in this PR
+      - name: Identify Changed Source Files
+        id: filter
+        run: |
+          echo "==> Comparing branch HEAD against base: origin/${{ github.base_ref }}"
+          git fetch origin "${{ github.base_ref }}" --depth=1 || true
+
+          CHANGED_FILES=$(git diff --name-only --diff-filter=ACMRT "origin/${{ github.base_ref }}"...HEAD | grep -E '\.(js|py|go|ts|jsx|tsx)$' || true)
+
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "No supported source files (js, py, go, ts) modified in this PR."
+            echo "has_files=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Found modified source files:"
+            echo "$CHANGED_FILES"
+            FILES_STRING=$(echo "$CHANGED_FILES" | tr '\n' ' ')
+            echo "has_files=true" >> "$GITHUB_OUTPUT"
+            echo "files=$FILES_STRING" >> "$GITHUB_OUTPUT"
+          fi
+
+      # 3. Informative Note if No Code Files Changed
+      - name: Informative Note if No Code Changed
+        if: steps.filter.outputs.has_files != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pull_number = context.payload.pull_request ? context.payload.pull_request.number : null;
+            if (!pull_number) return;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pull_number,
+              body: '## 🛡️ CodeMender Security Review\n\nℹ️ **No application source code files (`.js`, `.py`, `.go`, `.ts`) were modified in this PR.** Automated security review was skipped.'
+            });
+
+      # 4. Authenticate to Google Cloud via Workload Identity Federation (Keyless / OIDC)
+      - name: Authenticate to Google Cloud (WIF / Keyless)
+        if: steps.filter.outputs.has_files == 'true'
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
+          service_account: ${{ env.GCP_WIF_SERVICE_ACCOUNT }}
+          export_environment_variables: true
+          create_credentials_file: true
+
+      # 5. Set up Cloud SDK
+      - name: Set up Cloud SDK
+        if: steps.filter.outputs.has_files == 'true'
+        uses: google-github-actions/setup-gcloud@v2
+
+      # 6. Install CodeMender CLI (cm)
+      - name: Download & Install CodeMender CLI
+        if: steps.filter.outputs.has_files == 'true'
+        run: |
+          echo "==> Downloading CodeMender CLI binary..."
+          curl -sSL -o cm-linux-amd64.zip "https://artifactregistry.googleapis.com/download/v1/projects/cmoc-prod/locations/us/repositories/codemender-cli-production/files/cm%3Astable%3Acm-linux-amd64.zip:download?alt=media"
+          unzip -q cm-linux-amd64.zip
+          chmod +x cm
+          sudo mv cm /usr/local/bin/cm
+          rm -f cm-linux-amd64.zip
+          cm --version || true
+
+      # 7. Initialize CodeMender Workspace with sandbox disabled
+      - name: Initialize CodeMender Workspace
+        if: steps.filter.outputs.has_files == 'true'
+        run: |
+          echo "==> Initializing .codemender configuration..."
+          cm init
+
+          for cfg in "$HOME/.codemender/config.yaml" ".codemender/config.yaml"; do
+            if [ -f "$cfg" ]; then
+              ruby -ryaml -e '
+                path = ARGV[0]
+                data = YAML.load_file(path) || {}
+                data["sandbox"] ||= {}
+                data["sandbox"]["enabled"] = false
+                File.write(path, YAML.dump(data))
+              ' "$cfg" 2>/dev/null || sed -i 's/enabled: true/enabled: false/g' "$cfg" 2>/dev/null || true
+            fi
+          done
+
+          cm init --verify
+
+      # 8. Scan Only Changed Files
+      - name: Scan Changed Files (cm find)
+        if: steps.filter.outputs.has_files == 'true'
+        id: cm-scan
+        run: |
+          mkdir -p reports patches
+          TARGET_FILES="${{ steps.filter.outputs.files }}"
+          echo "==> Scanning modified source files: $TARGET_FILES"
+          cm find $TARGET_FILES --compact --unrestricted || true
+
+          echo "==> Exporting scan findings..."
+          cm report --format json > reports/findings.json 2>/dev/null || true
+
+          if [ ! -s reports/findings.json ] || [ "$(cat reports/findings.json | tr -d '[:space:]')" = "[]" ] || [ "$(cat reports/findings.json | tr -d '[:space:]')" = "" ]; then
+            for db_path in "$HOME/.codemender/state.db" ".codemender/state.db"; do
+              if [ -f "$db_path" ]; then
+                sqlite3 -json "$db_path" "SELECT id as finding_id, title, file_path, severity, status, description FROM findings;" > reports/findings.json 2>/dev/null || true
+                break
+              fi
+            done
+          fi
+
+          echo "Exported findings count: $(jq 'if type=="array" then length else (.findings // [] | length) end' reports/findings.json 2>/dev/null || echo 0)"
+
+      # 9. Verify Exploitability and Synthesize Fixes
+      - name: Verify Exploitability & Synthesize Fixes (cm verify & cm fix)
+        if: steps.filter.outputs.has_files == 'true'
+        id: cm-remediate
+        run: |
+          FINDINGS_JSON="reports/findings.json"
+          mkdir -p reports patches
+
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Extract findings from JSON
+          FINDINGS_DATA=$(jq -c 'if type=="array" then . else .findings // [] end' "$FINDINGS_JSON" 2>/dev/null || echo '[]')
+          FINDING_IDS=$(echo "$FINDINGS_DATA" | jq -r '.[].id // .[].finding_id' | grep -v '^$' || true)
+
+          REVIEW_DATA="[]"
+
+          for fid in $FINDING_IDS; do
+            echo "--------------------------------------------------------"
+            echo "Processing Finding ID: $fid"
+            echo "--------------------------------------------------------"
+
+            ITEM=$(echo "$FINDINGS_DATA" | jq -c --arg id "$fid" '.[] | select((.id // .finding_id) == $id)' | head -n 1)
+            TITLE=$(echo "$ITEM" | jq -r '.title // .type // "Security Flaw"')
+            FILE_PATH=$(echo "$ITEM" | jq -r '.file_path // .file // ""')
+            SEVERITY=$(echo "$ITEM" | jq -r '.severity // "UNKNOWN"')
+            DESC=$(echo "$ITEM" | jq -r '.description // .hypothesis // ""')
+
+            VERIFY_STATUS="SKIPPED"
+            FIX_STATUS="SKIPPED"
+
+            echo "==> Executing: cm verify $fid"
+            if cm verify "$fid" --unrestricted --bypass-warning -y; then
+              VERIFY_STATUS="✅ Confirmed"
+            else
+              VERIFY_STATUS="⚠️ Unverified"
+            fi
+
+            echo "==> Executing: cm fix $fid"
+            if cm fix "$fid" --unrestricted --bypass-warning -y; then
+              if ! git diff --quiet || [ -n "$(git status --porcelain -uno)" ]; then
+                git add -u
+                git commit -m "fix(security): resolve $fid ($TITLE)"
+                FIX_STATUS="✅ Fix Synthesized"
+              else
+                FIX_STATUS="⚠️ No diff produced"
+              fi
+            else
+              FIX_STATUS="❌ Fix Failed"
+            fi
+
+            ENTRY=$(jq -n \
+              --arg id "$fid" \
+              --arg title "$TITLE" \
+              --arg file "$FILE_PATH" \
+              --arg severity "$SEVERITY" \
+              --arg desc "$DESC" \
+              --arg vstatus "$VERIFY_STATUS" \
+              --arg fstatus "$FIX_STATUS" \
+              '{id: $id, title: $title, file_path: $file, severity: $severity, description: $desc, verify_status: $vstatus, fix_status: $fstatus}')
+
+            REVIEW_DATA=$(echo "$REVIEW_DATA" | jq --argjson entry "$ENTRY" '. + [$entry]')
+          done
+
+          # Save structured review data
+          jq -n --argjson findings "$REVIEW_DATA" '{findings: $findings}' > reports/review_data.json
+
+          # Generate unified diff of all patches against base branch
+          git diff "origin/${{ github.base_ref }}"...HEAD > reports/codemender-changes.patch 2>/dev/null || true
+
+      # 10. Post PR Review: Comment 1 (Detailed Findings) & Comment 2 (Inline Suggestions)
+      - name: Post PR Review & Inline Suggestions
+        if: steps.filter.outputs.has_files == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runReview = require('./.github/scripts/post-pr-review.js');
+            await runReview({ github, context, core });
+
+      # 11. Upload Review Artifacts
+      - name: Upload PR Review Artifacts
+        if: always() && steps.filter.outputs.has_files == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: codemender-pr-review-${{ github.event.pull_request.number }}
+          path: |
+            reports/
+            .codemender/logs/
+          retention-days: 7

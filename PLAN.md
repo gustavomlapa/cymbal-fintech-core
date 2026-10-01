@@ -17,3 +17,10 @@
 - [x] Create `docs/CODEMENDER_SETUP.md` with step-by-step guidance for configuring GitHub repository variables and executing the workflow.
 - [x] Implement `.github/workflows/codemender.yml` with OIDC authentication, CodeMender CLI installation, finding iteration with `cm verify` & `cm fix`, artifacts upload, and automated Pull Request creation referencing artifacts.
 - [x] Validate bash scripts and workflow configuration.
+
+## CodeMender Continuous PR Review Workflow (Inline Fix Suggestions)
+- [x] Create `.github/workflows/codemender-pr-review.yml` triggered on PR open/synchronize that scans only changed files.
+- [x] Implement Comment 1: Detailed findings summary table in PR conversation.
+- [x] Implement Comment 2: Inline code suggestions via GitHub Review API with `suggestion` blocks.
+- [x] Validate workflow YAML syntax and test diff parsing.
+
