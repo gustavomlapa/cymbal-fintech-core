@@ -1,6 +1,8 @@
 import uuid
 import time
 import logging
+import threading
+from contextlib import nullcontext
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
 
@@ -20,6 +22,8 @@ class PaymentService:
         self.idempotency_mgr = idempotency_mgr or IdempotencyManager()
         self.webhook_dispatcher = webhook_dispatcher or WebhookDispatcher()
         self.orders: Dict[str, PaymentOrder] = {}
+        self._service_lock = threading.Lock()
+        self._key_locks: Dict[str, threading.Lock] = {}
         self._seed()
 
     def _seed(self):
@@ -66,6 +70,16 @@ class PaymentService:
         order = self.orders.get(payment_id)
         return order.to_dict() if order else None
 
+    def _get_key_lock(self, idempotency_key: Optional[str]):
+        if not idempotency_key:
+            return nullcontext()
+        if hasattr(self.idempotency_mgr, "get_key_lock"):
+            return self.idempotency_mgr.get_key_lock(idempotency_key)
+        with self._service_lock:
+            if idempotency_key not in self._key_locks:
+                self._key_locks[idempotency_key] = threading.Lock()
+            return self._key_locks[idempotency_key]
+
     def process_pix_payment(
         self,
         source_account_id: str,
@@ -80,55 +94,56 @@ class PaymentService:
         if not pix_key or not pix_key.strip():
             raise ValueError("PIX key is required")
 
-        # 1. Idempotency Check
-        if idempotency_key:
-            cached = self.idempotency_mgr.get_record(idempotency_key)
-            if cached:
-                logger.info(f"Returning cached payment for idempotency key: {idempotency_key}")
-                cached_data = cached["result"]
-                return PaymentOrder(
-                    id=cached_data["id"],
-                    source_account_id=cached_data["source_account_id"],
-                    destination_account_id=cached_data.get("destination_account_id"),
-                    pix_key=cached_data.get("pix_key"),
-                    method=PaymentMethod(cached_data["method"]),
-                    amount=cached_data["amount"],
-                    currency=cached_data["currency"],
-                    description=cached_data["description"],
-                    status=PaymentStatus(cached_data["status"]),
-                    idempotency_key=idempotency_key,
-                    created_at=cached_data["created_at"],
-                    settled_at=cached_data.get("settled_at"),
-                )
+        lock = self._get_key_lock(idempotency_key)
+        with lock:
+            # 1. Idempotency Check
+            if idempotency_key:
+                cached = self.idempotency_mgr.get_record(idempotency_key)
+                if cached:
+                    logger.info(f"Returning cached payment for idempotency key: {idempotency_key}")
+                    cached_data = cached["result"]
+                    return PaymentOrder(
+                        id=cached_data["id"],
+                        source_account_id=cached_data["source_account_id"],
+                        destination_account_id=cached_data.get("destination_account_id"),
+                        pix_key=cached_data.get("pix_key"),
+                        method=PaymentMethod(cached_data["method"]),
+                        amount=cached_data["amount"],
+                        currency=cached_data["currency"],
+                        description=cached_data["description"],
+                        status=PaymentStatus(cached_data["status"]),
+                        idempotency_key=idempotency_key,
+                        created_at=cached_data["created_at"],
+                        settled_at=cached_data.get("settled_at"),
+                    )
 
-        # 2. Simulate settlement latency with Central Bank PIX rail
-        time.sleep(0.01)
+            # 2. Simulate settlement latency with Central Bank PIX rail
+            time.sleep(0.01)
 
-        # 3. Create settled payment order
-        order_id = f"pay_{uuid.uuid4().hex[:10]}"
-        now_str = datetime.now(timezone.utc).isoformat()
+            # 3. Create settled payment order
+            order_id = f"pay_{uuid.uuid4().hex[:10]}"
+            now_str = datetime.now(timezone.utc).isoformat()
 
-        order = PaymentOrder(
-            id=order_id,
-            source_account_id=source_account_id,
-            destination_account_id=None,
-            pix_key=pix_key,
-            method=PaymentMethod.PIX,
-            amount=amount,
-            currency="BRL",
-            description=description,
-            status=PaymentStatus.SETTLED,
-            idempotency_key=idempotency_key,
-            created_at=now_str,
-            settled_at=now_str,
-        )
+            order = PaymentOrder(
+                id=order_id,
+                source_account_id=source_account_id,
+                destination_account_id=None,
+                pix_key=pix_key,
+                method=PaymentMethod.PIX,
+                amount=amount,
+                currency="BRL",
+                description=description,
+                status=PaymentStatus.SETTLED,
+                idempotency_key=idempotency_key,
+                created_at=now_str,
+                settled_at=now_str,
+            )
 
-        self.orders[order_id] = order
+            self.orders[order_id] = order
 
-        # 4. Commit to idempotency cache after settlement completes
-        if idempotency_key:
-            self.idempotency_mgr.save_record(idempotency_key, order.to_dict())
+            # 4. Commit to idempotency cache after settlement completes
+            if idempotency_key:
+                self.idempotency_mgr.save_record(idempotency_key, order.to_dict())
 
-        logger.info(f"PIX payment {order_id} settled for amount R$ {amount:.2f}")
-        return order
-
+            logger.info(f"PIX payment {order_id} settled for amount R$ {amount:.2f}")
+            return order

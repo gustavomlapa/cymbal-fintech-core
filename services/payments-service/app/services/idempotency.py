@@ -1,5 +1,6 @@
 import time
 import logging
+import threading
 from typing import Optional, Dict, Any
 
 logger = logging.getLogger("payments.idempotency")
@@ -13,6 +14,17 @@ class IdempotencyManager:
 
     def __init__(self):
         self._store: Dict[str, Dict[str, Any]] = {}
+        self._lock = threading.Lock()
+        self._key_locks: Dict[str, threading.Lock] = {}
+
+    def get_key_lock(self, key: str) -> threading.Lock:
+        """
+        Get or create a lock for a given idempotency key to prevent race conditions.
+        """
+        with self._lock:
+            if key not in self._key_locks:
+                self._key_locks[key] = threading.Lock()
+            return self._key_locks[key]
 
     def get_record(self, key: str) -> Optional[Dict[str, Any]]:
         """
@@ -20,19 +32,18 @@ class IdempotencyManager:
         """
         if not key:
             return None
-        return self._store.get(key)
+        with self._lock:
+            return self._store.get(key)
 
     def save_record(self, key: str, data: Dict[str, Any]) -> None:
         """
         Commit completed transaction result to idempotency store.
-        Note: check-then-set race window occurs when commit is only executed
-        after slow downstream external rail settlement.
         """
         if not key:
             return
-        self._store[key] = {
-            "result": data,
-            "cached_at": time.time()
-        }
+        with self._lock:
+            self._store[key] = {
+                "result": data,
+                "cached_at": time.time()
+            }
         logger.info(f"Committed idempotency key: {key}")
-
