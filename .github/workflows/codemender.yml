@@ -86,18 +86,39 @@ jobs:
           echo "CodeMender CLI installed at: $(which cm)"
           cm --version || true
 
-      # 6. Initialize CodeMender workspace and configure CI environment
+      # 6. Initialize CodeMender workspace and configure clean context
       - name: Initialize CodeMender Workspace
         run: |
           echo "==> Initializing .codemender configuration..."
           cm init
           echo "==> Verifying cloud reasoning connectivity..."
           cm init --verify
-          # Configure CodeMender for disposable CI runner environment
+
+          # Ensure clean state with no residual caches or previous run artifacts
+          cm clean || true
+
+          # Configure CodeMender exclusions and sandbox policy
           for cfg in "$HOME/.codemender/config.yaml" ".codemender/config.yaml"; do
             if [ -f "$cfg" ]; then
-              echo "Configuring sandbox.enabled: false in $cfg"
+              echo "Configuring sandbox and exclusion paths in $cfg"
               sed -i 's/enabled: true/enabled: false/g' "$cfg" 2>/dev/null || true
+              {
+                echo ""
+                echo "exclude_paths:"
+                echo "  - \"docs\""
+                echo "  - \"reports\""
+                echo "  - \"scripts\""
+                echo "  - \".github\""
+                echo "  - \"PLAN.md\""
+                echo "  - \"README.md\""
+                echo ""
+                echo "scan:"
+                echo "  extensions:"
+                echo "    include:"
+                echo "      - .js"
+                echo "      - .py"
+                echo "      - .go"
+              } >> "$cfg"
             fi
           done
 
@@ -146,15 +167,12 @@ jobs:
             exit 0
           fi
 
-          # Deduplicate findings by target file_path and title (case-insensitive)
-          DEDUP_JSON=$(jq -c '
+          # Extract finding IDs directly from CodeMender report
+          FINDING_IDS=$(jq -r '
             (if type=="array" then . else .findings // [] end)
             | map(select((.status // "OPEN" | ascii_upcase) != "FIXED"))
-            | group_by((.file_path // .file // "") + "::" + ((.title // .message // "") | ascii_downcase))
-            | map(.[0])
-          ' "$FINDINGS_JSON" 2>/dev/null || echo '[]')
-
-          FINDING_IDS=$(echo "$DEDUP_JSON" | jq -r '.[] | .finding_id // .id' | grep -v '^$' || true)
+            | .[] | .finding_id // .id
+          ' "$FINDINGS_JSON" 2>/dev/null | grep -v '^$' || true)
 
           if [ -z "$FINDING_IDS" ]; then
             echo "No open findings discovered to verify or fix."
@@ -162,7 +180,7 @@ jobs:
             exit 0
           fi
 
-          echo "Found unique open finding IDs after deduplication:"
+          echo "Found open finding IDs to process:"
           echo "$FINDING_IDS"
 
           for fid in $FINDING_IDS; do
@@ -170,9 +188,9 @@ jobs:
             echo "Processing Finding ID: $fid"
             echo "--------------------------------------------------------"
 
-            TITLE=$(echo "$DEDUP_JSON" | jq -r --arg id "$fid" '.[] | select((.finding_id // .id) == $id) | .title // .type // "Security Flaw"' | head -n 1 | tr '|' '/')
-            SEVERITY=$(echo "$DEDUP_JSON" | jq -r --arg id "$fid" '.[] | select((.finding_id // .id) == $id) | .severity // "UNKNOWN"' | head -n 1)
-            FILE_PATH=$(echo "$DEDUP_JSON" | jq -r --arg id "$fid" '.[] | select((.finding_id // .id) == $id) | .file_path // .file // ""' | head -n 1)
+            TITLE=$(jq -r --arg id "$fid" '(if type=="array" then . else .findings // [] end)[] | select((.finding_id // .id) == $id) | .title // .type // "Security Flaw"' "$FINDINGS_JSON" | head -n 1 | tr '|' '/')
+            SEVERITY=$(jq -r --arg id "$fid" '(if type=="array" then . else .findings // [] end)[] | select((.finding_id // .id) == $id) | .severity // "UNKNOWN"' "$FINDINGS_JSON" | head -n 1)
+            FILE_PATH=$(jq -r --arg id "$fid" '(if type=="array" then . else .findings // [] end)[] | select((.finding_id // .id) == $id) | .file_path // .file // ""' "$FINDINGS_JSON" | head -n 1)
 
             VERIFY_STATUS="SKIPPED"
             FIX_STATUS="SKIPPED"
