@@ -52,7 +52,9 @@ const server = http.createServer(async (req, res) => {
         status: 'UP',
         service: 'identity-service',
         version: '1.2.0',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        uptime_seconds: Math.floor(process.uptime()),
+        memory_usage_mb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024)
       });
     }
 

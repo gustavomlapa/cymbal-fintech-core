@@ -164,10 +164,27 @@ function evaluatePortalRisk({ amount, destinationPix, isNewDevice }) {
   };
 }
 
+function getTransactionSummary() {
+  const credits = state.recentTransactions
+    .filter(t => t.type === 'CREDIT')
+    .reduce((sum, t) => sum + t.amount, 0);
+  const debits = state.recentTransactions
+    .filter(t => t.type === 'DEBIT')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  return {
+    count: state.recentTransactions.length,
+    totalCredits: parseFloat(credits.toFixed(2)),
+    totalDebits: parseFloat(debits.toFixed(2)),
+    netVolume: parseFloat((credits - debits).toFixed(2))
+  };
+}
+
 module.exports = {
   getPortalOverview,
   simulatePortalLoan,
   executePortalTransfer,
-  evaluatePortalRisk
+  evaluatePortalRisk,
+  getTransactionSummary
 };
 

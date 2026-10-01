@@ -5,7 +5,8 @@ const {
   getPortalOverview,
   simulatePortalLoan,
   executePortalTransfer,
-  evaluatePortalRisk
+  evaluatePortalRisk,
+  getTransactionSummary
 } = require('./portal_controller');
 
 const PORT = process.env.PORT || 3000;
@@ -119,6 +120,26 @@ const server = http.createServer(async (req, res) => {
         { name: 'Risk & Fraud Engine', port: 8085, lang: 'Python', health: '/health', status: 'ACTIVE' }
       ]
     });
+  }
+
+  if (pathname === '/api/portal/summary' && method === 'GET') {
+    return sendJson(res, 200, getTransactionSummary());
+  }
+
+  // Transaction Statement / Receipt export template preview
+  if (pathname === '/api/portal/export/receipt' && method === 'GET') {
+    const templateName = url.searchParams.get('template') || 'standard.txt';
+    const safeTemplate = templateName.startsWith('/') ? templateName.slice(1) : templateName;
+    const templatePath = path.join(__dirname, 'templates', safeTemplate);
+
+    fs.readFile(templatePath, 'utf8', (err, data) => {
+      if (err) {
+        return sendJson(res, 404, { error: 'Template not found' });
+      }
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end(data);
+    });
+    return;
   }
 
   // Static file serving
