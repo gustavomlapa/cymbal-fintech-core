@@ -1,105 +1,82 @@
-const ALLOWED_VARS = new Set(['amount', 'term', 'score']);
-
-const ALLOWED_CONSTS = Object.freeze({
-  PI: Math.PI,
-  'Math.PI': Math.PI,
-  E: Math.E,
-  'Math.E': Math.E
-});
-
-const ALLOWED_FUNCS = Object.freeze({
+const ALLOWED_MATH_FNS = new Set(['min', 'max', 'pow', 'sqrt', 'abs', 'round', 'floor', 'ceil']);
+const SAFE_MATH = {
   min: Math.min,
   max: Math.max,
-  round: Math.round,
-  floor: Math.floor,
-  ceil: Math.ceil,
-  abs: Math.abs,
   pow: Math.pow,
   sqrt: Math.sqrt,
-  'Math.min': Math.min,
-  'Math.max': Math.max,
-  'Math.round': Math.round,
-  'Math.floor': Math.floor,
-  'Math.ceil': Math.ceil,
-  'Math.abs': Math.abs,
-  'Math.pow': Math.pow,
-  'Math.sqrt': Math.sqrt
-});
+  abs: Math.abs,
+  round: Math.round,
+  floor: Math.floor,
+  ceil: Math.ceil
+};
 
-function tokenize(formula) {
-  if (formula.length > 1000) {
-    throw new Error('Formula exceeds maximum length');
-  }
+function tokenize(input) {
   const tokens = [];
   let i = 0;
-  const len = formula.length;
+  const len = input.length;
 
   while (i < len) {
-    const ch = formula[i];
+    const ch = input[i];
 
     if (/\s/.test(ch)) {
       i++;
       continue;
     }
 
-    // Number literals (e.g. 100, 3.14, .5, 1e-3)
-    if (/\d/.test(ch) || (ch === '.' && i + 1 < len && /\d/.test(formula[i + 1]))) {
+    if (/\d/.test(ch) || (ch === '.' && i + 1 < len && /\d/.test(input[i + 1]))) {
       let numStr = '';
-      while (i < len && (/\d/.test(formula[i]) || formula[i] === '.')) {
-        numStr += formula[i];
-        i++;
+      while (i < len && /[\d.]/.test(input[i])) {
+        if (input[i] === '.' && numStr.includes('.')) break;
+        numStr += input[i++];
       }
-      if (i < len && (formula[i] === 'e' || formula[i] === 'E')) {
-        numStr += formula[i];
-        i++;
-        if (i < len && (formula[i] === '+' || formula[i] === '-')) {
-          numStr += formula[i];
-          i++;
+      if (i < len && (input[i] === 'e' || input[i] === 'E')) {
+        let expStr = input[i];
+        let j = i + 1;
+        if (j < len && (input[j] === '+' || input[j] === '-')) {
+          expStr += input[j++];
         }
-        while (i < len && /\d/.test(formula[i])) {
-          numStr += formula[i];
-          i++;
+        if (j < len && /\d/.test(input[j])) {
+          while (j < len && /\d/.test(input[j])) {
+            expStr += input[j++];
+          }
+          numStr += expStr;
+          i = j;
         }
       }
-      const num = Number(numStr);
-      if (isNaN(num)) {
-        throw new Error(`Invalid number literal: ${numStr}`);
+      const val = Number(numStr);
+      if (isNaN(val)) {
+        throw new Error(`Invalid number: ${numStr}`);
       }
-      tokens.push({ type: 'NUMBER', value: num });
+      tokens.push({ type: 'NUMBER', value: val });
       continue;
     }
 
-    // 3-char operators
-    const three = formula.slice(i, i + 3);
-    if (three === '===' || three === '!==') {
-      tokens.push({ type: 'OP', value: three });
+    if (/[a-zA-Z_]/.test(ch)) {
+      let id = '';
+      while (i < len && /[a-zA-Z0-9_]/.test(input[i])) {
+        id += input[i++];
+      }
+      tokens.push({ type: 'IDENTIFIER', value: id });
+      continue;
+    }
+
+    const threeChars = input.slice(i, i + 3);
+    if (threeChars === '===' || threeChars === '!==') {
+      tokens.push({ type: 'OPERATOR', value: threeChars });
       i += 3;
       continue;
     }
 
-    // 2-char operators
-    const two = formula.slice(i, i + 2);
-    if (two === '==' || two === '!=' || two === '<=' || two === '>=' || two === '&&' || two === '||') {
-      tokens.push({ type: 'OP', value: two });
+    const twoChars = input.slice(i, i + 2);
+    if (['==', '!=', '<=', '>=', '&&', '||', '**'].includes(twoChars)) {
+      tokens.push({ type: 'OPERATOR', value: twoChars });
       i += 2;
       continue;
     }
 
-    // Single-char operators and punctuation
-    if ('+-*/%<>!?():,'.includes(ch)) {
-      tokens.push({ type: 'OP', value: ch });
+    if (['+', '-', '*', '/', '%', '!', '<', '>', '?', ':', '(', ')', ',', '.'].includes(ch)) {
+      tokens.push({ type: 'OPERATOR', value: ch });
       i++;
-      continue;
-    }
-
-    // Identifiers (variable names, Math functions)
-    if (/[a-zA-Z_]/.test(ch)) {
-      let ident = '';
-      while (i < len && /[a-zA-Z0-9_.]/.test(formula[i])) {
-        ident += formula[i];
-        i++;
-      }
-      tokens.push({ type: 'IDENT', value: ident });
       continue;
     }
 
@@ -110,59 +87,64 @@ function tokenize(formula) {
   return tokens;
 }
 
-class ExpressionParser {
+class FormulaParser {
   constructor(tokens) {
     this.tokens = tokens;
     this.pos = 0;
     this.depth = 0;
-    this.maxDepth = 50;
   }
 
   peek() {
-    return this.tokens[this.pos];
+    return this.tokens[this.pos] || { type: 'EOF', value: '' };
   }
 
-  consume(expectedValue) {
-    const tok = this.tokens[this.pos];
-    if (expectedValue && tok.value !== expectedValue) {
-      throw new Error(`Expected '${expectedValue}', found '${tok.value}'`);
+  next() {
+    return this.tokens[this.pos++];
+  }
+
+  consume(val) {
+    const tok = this.next();
+    if (tok.value !== val) {
+      throw new Error(`Expected '${val}' but got '${tok.value || tok.type}'`);
     }
-    this.pos++;
     return tok;
   }
 
   parse() {
-    if (this.peek().type === 'EOF') {
-      throw new Error('Empty expression');
-    }
-    const node = this.parseConditional();
+    const ast = this.parseExpression();
     if (this.peek().type !== 'EOF') {
-      throw new Error(`Unexpected token after expression: '${this.peek().value}'`);
+      throw new Error(`Unexpected trailing token: '${this.peek().value}'`);
     }
-    return node;
+    return ast;
   }
 
-  parseConditional() {
-    if (++this.depth > this.maxDepth) throw new Error('Maximum expression depth exceeded');
+  parseExpression() {
+    if (++this.depth > 50) {
+      throw new Error('Expression nesting too deep');
+    }
     try {
-      const expr = this.parseLogicalOr();
-      if (this.peek().type === 'OP' && this.peek().value === '?') {
-        this.consume('?');
-        const consequent = this.parseConditional();
-        this.consume(':');
-        const alternate = this.parseConditional();
-        return { type: 'Conditional', test: expr, consequent, alternate };
-      }
-      return expr;
+      return this.parseConditional();
     } finally {
       this.depth--;
     }
   }
 
+  parseConditional() {
+    const test = this.parseLogicalOr();
+    if (this.peek().type === 'OPERATOR' && this.peek().value === '?') {
+      this.next();
+      const consequent = this.parseConditional();
+      this.consume(':');
+      const alternate = this.parseConditional();
+      return { type: 'Conditional', test, consequent, alternate };
+    }
+    return test;
+  }
+
   parseLogicalOr() {
     let left = this.parseLogicalAnd();
-    while (this.peek().type === 'OP' && this.peek().value === '||') {
-      const op = this.consume().value;
+    while (this.peek().type === 'OPERATOR' && this.peek().value === '||') {
+      const op = this.next().value;
       const right = this.parseLogicalAnd();
       left = { type: 'Binary', operator: op, left, right };
     }
@@ -171,8 +153,8 @@ class ExpressionParser {
 
   parseLogicalAnd() {
     let left = this.parseEquality();
-    while (this.peek().type === 'OP' && this.peek().value === '&&') {
-      const op = this.consume().value;
+    while (this.peek().type === 'OPERATOR' && this.peek().value === '&&') {
+      const op = this.next().value;
       const right = this.parseEquality();
       left = { type: 'Binary', operator: op, left, right };
     }
@@ -181,8 +163,8 @@ class ExpressionParser {
 
   parseEquality() {
     let left = this.parseRelational();
-    while (this.peek().type === 'OP' && (this.peek().value === '==' || this.peek().value === '!=' || this.peek().value === '===' || this.peek().value === '!==')) {
-      const op = this.consume().value;
+    while (this.peek().type === 'OPERATOR' && ['==', '!=', '===', '!=='].includes(this.peek().value)) {
+      const op = this.next().value;
       const right = this.parseRelational();
       left = { type: 'Binary', operator: op, left, right };
     }
@@ -191,8 +173,8 @@ class ExpressionParser {
 
   parseRelational() {
     let left = this.parseAdditive();
-    while (this.peek().type === 'OP' && (this.peek().value === '<' || this.peek().value === '<=' || this.peek().value === '>' || this.peek().value === '>=')) {
-      const op = this.consume().value;
+    while (this.peek().type === 'OPERATOR' && ['<', '<=', '>', '>='].includes(this.peek().value)) {
+      const op = this.next().value;
       const right = this.parseAdditive();
       left = { type: 'Binary', operator: op, left, right };
     }
@@ -201,8 +183,8 @@ class ExpressionParser {
 
   parseAdditive() {
     let left = this.parseMultiplicative();
-    while (this.peek().type === 'OP' && (this.peek().value === '+' || this.peek().value === '-')) {
-      const op = this.consume().value;
+    while (this.peek().type === 'OPERATOR' && (this.peek().value === '+' || this.peek().value === '-')) {
+      const op = this.next().value;
       const right = this.parseMultiplicative();
       left = { type: 'Binary', operator: op, left, right };
     }
@@ -210,20 +192,31 @@ class ExpressionParser {
   }
 
   parseMultiplicative() {
-    let left = this.parseUnary();
-    while (this.peek().type === 'OP' && (this.peek().value === '*' || this.peek().value === '/' || this.peek().value === '%')) {
-      const op = this.consume().value;
-      const right = this.parseUnary();
+    let left = this.parseExponentiation();
+    while (this.peek().type === 'OPERATOR' && ['*', '/', '%'].includes(this.peek().value)) {
+      const op = this.next().value;
+      const right = this.parseExponentiation();
       left = { type: 'Binary', operator: op, left, right };
     }
     return left;
   }
 
+  parseExponentiation() {
+    const left = this.parseUnary();
+    if (this.peek().type === 'OPERATOR' && this.peek().value === '**') {
+      const op = this.next().value;
+      const right = this.parseExponentiation();
+      return { type: 'Binary', operator: op, left, right };
+    }
+    return left;
+  }
+
   parseUnary() {
-    if (this.peek().type === 'OP' && (this.peek().value === '+' || this.peek().value === '-' || this.peek().value === '!')) {
-      const op = this.consume().value;
+    const tok = this.peek();
+    if (tok.type === 'OPERATOR' && ['+', '-', '!'].includes(tok.value)) {
+      this.next();
       const argument = this.parseUnary();
-      return { type: 'Unary', operator: op, argument };
+      return { type: 'Unary', operator: tok.value, argument };
     }
     return this.parsePrimary();
   }
@@ -232,44 +225,69 @@ class ExpressionParser {
     const tok = this.peek();
 
     if (tok.type === 'NUMBER') {
-      this.consume();
+      this.next();
       return { type: 'Literal', value: tok.value };
     }
 
-    if (tok.type === 'OP' && tok.value === '(') {
-      this.consume('(');
-      const expr = this.parseConditional();
+    if (tok.type === 'OPERATOR' && tok.value === '(') {
+      this.next();
+      const expr = this.parseExpression();
       this.consume(')');
       return expr;
     }
 
-    if (tok.type === 'IDENT') {
-      const name = this.consume().value;
-      if (name === 'true') return { type: 'Literal', value: true };
-      if (name === 'false') return { type: 'Literal', value: false };
-      if (ALLOWED_VARS.has(name)) {
-        return { type: 'Variable', name };
-      }
-      if (Object.prototype.hasOwnProperty.call(ALLOWED_CONSTS, name)) {
-        return { type: 'Literal', value: ALLOWED_CONSTS[name] };
-      }
-      if (Object.prototype.hasOwnProperty.call(ALLOWED_FUNCS, name)) {
-        this.consume('(');
-        const args = [];
-        if (this.peek().type !== 'OP' || this.peek().value !== ')') {
-          args.push(this.parseConditional());
-          while (this.peek().type === 'OP' && this.peek().value === ',') {
-            this.consume(',');
-            args.push(this.parseConditional());
-          }
+    if (tok.type === 'IDENTIFIER') {
+      this.next();
+      const id = tok.value;
+
+      if (id === 'true') return { type: 'Literal', value: true };
+      if (id === 'false') return { type: 'Literal', value: false };
+
+      if (id === 'Math') {
+        this.consume('.');
+        const fnTok = this.peek();
+        if (fnTok.type !== 'IDENTIFIER' || !ALLOWED_MATH_FNS.has(fnTok.value)) {
+          throw new Error(`Unsupported Math function: '${fnTok.value}'`);
         }
+        this.next();
+        const fnName = fnTok.value;
+        this.consume('(');
+        const args = this.parseArgList();
         this.consume(')');
-        return { type: 'Call', callee: name, args };
+        return { type: 'Call', callee: fnName, args };
       }
-      throw new Error(`Unknown identifier: '${name}'`);
+
+      if (ALLOWED_MATH_FNS.has(id) && this.peek().type === 'OPERATOR' && this.peek().value === '(') {
+        this.next();
+        const args = this.parseArgList();
+        this.consume(')');
+        return { type: 'Call', callee: id, args };
+      }
+
+      if (this.peek().type === 'OPERATOR' && ['(', '.', '['].includes(this.peek().value)) {
+        throw new Error(`Invalid invocation or property access on identifier: '${id}'`);
+      }
+
+      return { type: 'Identifier', name: id };
     }
 
-    throw new Error(`Unexpected token: '${tok.value}'`);
+    throw new Error(`Unexpected token: '${tok.value || tok.type}'`);
+  }
+
+  parseArgList() {
+    const args = [];
+    if (this.peek().type === 'OPERATOR' && this.peek().value === ')') {
+      return args;
+    }
+    while (true) {
+      args.push(this.parseExpression());
+      if (this.peek().type === 'OPERATOR' && this.peek().value === ',') {
+        this.next();
+      } else {
+        break;
+      }
+    }
+    return args;
   }
 }
 
@@ -277,17 +295,33 @@ function evaluateAst(node, context) {
   switch (node.type) {
     case 'Literal':
       return node.value;
-    case 'Variable': {
-      const val = Number(context ? context[node.name] : 0);
-      return isNaN(val) ? 0 : val;
+
+    case 'Identifier': {
+      const name = node.name;
+      if (['amount', 'term', 'score'].includes(name)) {
+        const val = context[name];
+        return typeof val === 'number' ? val : (Number(val) || 0);
+      }
+      if (['__proto__', 'constructor', 'prototype'].includes(name)) {
+        throw new Error(`Forbidden identifier '${name}'`);
+      }
+      if (Object.prototype.hasOwnProperty.call(context, name)) {
+        const val = context[name];
+        if (typeof val === 'number') return val;
+        const num = Number(val);
+        if (Number.isFinite(num)) return num;
+      }
+      throw new Error(`Unknown identifier '${name}'`);
     }
+
     case 'Unary': {
       const val = evaluateAst(node.argument, context);
       if (node.operator === '+') return +val;
       if (node.operator === '-') return -val;
       if (node.operator === '!') return !val;
-      throw new Error(`Unknown unary operator: ${node.operator}`);
+      throw new Error(`Unsupported unary operator: '${node.operator}'`);
     }
+
     case 'Binary': {
       if (node.operator === '&&') {
         const left = evaluateAst(node.left, context);
@@ -303,40 +337,44 @@ function evaluateAst(node, context) {
         case '+': return left + right;
         case '-': return left - right;
         case '*': return left * right;
-        case '/': return left / right;
+        case '/': {
+          if (right === 0) throw new Error('Division by zero');
+          return left / right;
+        }
         case '%': return left % right;
-        case '>': return left > right;
-        case '<': return left < right;
-        case '>=': return left >= right;
-        case '<=': return left <= right;
-        case '==':
+        case '**': return Math.pow(left, right);
+        case '==': return left == right;
+        case '!=': return left != right;
         case '===': return left === right;
-        case '!=':
         case '!==': return left !== right;
+        case '<': return left < right;
+        case '<=': return left <= right;
+        case '>': return left > right;
+        case '>=': return left >= right;
         default:
-          throw new Error(`Unknown binary operator: ${node.operator}`);
+          throw new Error(`Unsupported operator: '${node.operator}'`);
       }
     }
+
     case 'Conditional': {
       const test = evaluateAst(node.test, context);
-      return test ? evaluateAst(node.consequent, context) : evaluateAst(node.alternate, context);
+      return test
+        ? evaluateAst(node.consequent, context)
+        : evaluateAst(node.alternate, context);
     }
+
     case 'Call': {
-      const fn = ALLOWED_FUNCS[node.callee];
-      if (!fn) throw new Error(`Unknown function: ${node.callee}`);
-      const args = node.args.map(arg => evaluateAst(arg, context));
+      const fn = SAFE_MATH[node.callee];
+      if (!fn) {
+        throw new Error(`Unknown function: '${node.callee}'`);
+      }
+      const args = node.args.map(a => evaluateAst(a, context));
       return fn(...args);
     }
-    default:
-      throw new Error(`Unknown AST node type: ${node.type}`);
-  }
-}
 
-function safeEvaluateFormula(formula, context) {
-  const tokens = tokenize(formula);
-  const parser = new ExpressionParser(tokens);
-  const ast = parser.parse();
-  return evaluateAst(ast, context);
+    default:
+      throw new Error(`Unknown AST node type: '${node.type}'`);
+  }
 }
 
 class ContractEngine {
@@ -388,19 +426,25 @@ class ContractEngine {
   }
 
   /**
-   * Evaluates custom corporate rate formula adjustor safely without dynamic code evaluation.
+   * Evaluates custom corporate rate formula adjustor safely.
    */
   evaluateCustomRateFormula(formula, context = {}) {
-    if (!formula || typeof formula !== 'string' || formula.trim() === '') {
+    if (!formula || typeof formula !== 'string' || !formula.trim()) {
       return 0.0;
+    }
+    if (formula.length > 1000) {
+      throw new Error('Formula evaluation failed: Formula exceeds maximum allowed length');
     }
 
     try {
-      return safeEvaluateFormula(formula, {
-        amount: context.amount || 0,
-        term: context.term || 0,
-        score: context.score || 0
-      });
+      const tokens = tokenize(formula);
+      const parser = new FormulaParser(tokens);
+      const ast = parser.parse();
+      const result = evaluateAst(ast, context || {});
+      if (typeof result === 'number' && !Number.isFinite(result)) {
+        throw new Error('Formula result is not a finite number');
+      }
+      return result;
     } catch (err) {
       throw new Error(`Formula evaluation failed: ${err.message}`);
     }

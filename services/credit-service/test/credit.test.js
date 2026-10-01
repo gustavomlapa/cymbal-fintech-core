@@ -43,3 +43,4 @@ test('ProposalStore updates proposal status', () => {
   assert.equal(updated.status, 'APPROVED');
 });
 
+
