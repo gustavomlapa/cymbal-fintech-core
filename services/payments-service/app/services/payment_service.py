@@ -22,9 +22,17 @@ class PaymentService:
         self.idempotency_mgr = idempotency_mgr or IdempotencyManager()
         self.webhook_dispatcher = webhook_dispatcher or WebhookDispatcher()
         self.orders: Dict[str, PaymentOrder] = {}
-        self._service_lock = threading.Lock()
+        self._lock = threading.Lock()
         self._key_locks: Dict[str, threading.Lock] = {}
         self._seed()
+
+    def _get_key_lock(self, key: str) -> threading.Lock:
+        if hasattr(self.idempotency_mgr, "get_key_lock"):
+            return self.idempotency_mgr.get_key_lock(key)
+        with self._lock:
+            if key not in self._key_locks:
+                self._key_locks[key] = threading.Lock()
+            return self._key_locks[key]
 
     def _seed(self):
         seed_orders = [
@@ -70,16 +78,6 @@ class PaymentService:
         order = self.orders.get(payment_id)
         return order.to_dict() if order else None
 
-    def _get_key_lock(self, idempotency_key: Optional[str]):
-        if not idempotency_key:
-            return nullcontext()
-        if hasattr(self.idempotency_mgr, "get_key_lock"):
-            return self.idempotency_mgr.get_key_lock(idempotency_key)
-        with self._service_lock:
-            if idempotency_key not in self._key_locks:
-                self._key_locks[idempotency_key] = threading.Lock()
-            return self._key_locks[idempotency_key]
-
     def process_pix_payment(
         self,
         source_account_id: str,
@@ -94,8 +92,8 @@ class PaymentService:
         if not pix_key or not pix_key.strip():
             raise ValueError("PIX key is required")
 
-        lock = self._get_key_lock(idempotency_key)
-        with lock:
+        lock = self._get_key_lock(idempotency_key) if idempotency_key else None
+        with lock if lock is not None else nullcontext():
             # 1. Idempotency Check
             if idempotency_key:
                 cached = self.idempotency_mgr.get_record(idempotency_key)

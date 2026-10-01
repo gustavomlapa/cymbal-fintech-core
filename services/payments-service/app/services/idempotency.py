@@ -19,7 +19,7 @@ class IdempotencyManager:
 
     def get_key_lock(self, key: str) -> threading.Lock:
         """
-        Get or create a lock for a given idempotency key to prevent race conditions.
+        Get or create a mutex lock for the specified idempotency key.
         """
         with self._lock:
             if key not in self._key_locks:
