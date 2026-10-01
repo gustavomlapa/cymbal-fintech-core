@@ -15,6 +15,7 @@ type BankingService struct {
 	logger         *slog.Logger
 	cacheMu        sync.RWMutex
 	statementCache map[string]*domain.Statement
+	accountLocks   sync.Map
 }
 
 func NewBankingService(repo repository.Repository, logger *slog.Logger) *BankingService {
@@ -23,6 +24,11 @@ func NewBankingService(repo repository.Repository, logger *slog.Logger) *Banking
 		logger:         logger,
 		statementCache: make(map[string]*domain.Statement),
 	}
+}
+
+func (s *BankingService) getAccountLock(accountID string) *sync.Mutex {
+	val, _ := s.accountLocks.LoadOrStore(accountID, &sync.Mutex{})
+	return val.(*sync.Mutex)
 }
 
 func (s *BankingService) GetAccount(accountID string) (*domain.Account, error) {
@@ -37,6 +43,10 @@ func (s *BankingService) Credit(accountID string, amount float64, description, r
 	if amount <= 0 {
 		return nil, domain.ErrInvalidAmount
 	}
+
+	mu := s.getAccountLock(accountID)
+	mu.Lock()
+	defer mu.Unlock()
 
 	acc, err := s.repo.GetAccountByID(accountID)
 	if err != nil {
@@ -77,11 +87,15 @@ func (s *BankingService) Credit(accountID string, amount float64, description, r
 
 // Debit processes an account withdrawal or payment debit.
 // Note: Reads balance, validates liquidity threshold, simulates brief external ledger
-// reservation latency, then computes balance without atomic serialization (TOCTOU concurrency window).
+// reservation latency, then computes balance with per-account serialization to prevent TOCTOU race conditions.
 func (s *BankingService) Debit(accountID string, amount float64, description, refID string) (*domain.TransactionEntry, error) {
 	if amount <= 0 {
 		return nil, domain.ErrInvalidAmount
 	}
+
+	mu := s.getAccountLock(accountID)
+	mu.Lock()
+	defer mu.Unlock()
 
 	acc, err := s.repo.GetAccountByID(accountID)
 	if err != nil {
@@ -186,4 +200,3 @@ func (s *BankingService) invalidateStatementCache(accountID string) {
 	defer s.cacheMu.Unlock()
 	delete(s.statementCache, fmt.Sprintf("stmt:%s", accountID))
 }
-

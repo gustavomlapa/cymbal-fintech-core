@@ -1,8 +1,10 @@
 package service_test
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/cymbal-fintech/core-banking/internal/domain"
@@ -76,3 +78,43 @@ func TestGetStatement(t *testing.T) {
 	}
 }
 
+func TestConcurrentDebits(t *testing.T) {
+	svc := setupTestService()
+	// acc_1002 initial balance is 1250.0
+	// Two concurrent debits of 1000.0 should not both succeed (total 2000.0 > 1250.0)
+	var wg sync.WaitGroup
+	errs := make(chan error, 2)
+	for i := 0; i < 2; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			_, err := svc.Debit("acc_1002", 1000.0, "Concurrent debit", fmt.Sprintf("ref_concurrent_%d", idx))
+			errs <- err
+		}(i)
+	}
+	wg.Wait()
+	close(errs)
+
+	var successCount, failCount int
+	for err := range errs {
+		if err == nil {
+			successCount++
+		} else if err == domain.ErrInsufficientBalance {
+			failCount++
+		} else {
+			t.Errorf("unexpected error: %v", err)
+		}
+	}
+
+	if successCount != 1 || failCount != 1 {
+		t.Fatalf("expected 1 success and 1 insufficient balance failure, got %d successes and %d failures", successCount, failCount)
+	}
+
+	acc, err := svc.GetAccount("acc_1002")
+	if err != nil {
+		t.Fatalf("failed to get account: %v", err)
+	}
+	if acc.Balance != 250.0 {
+		t.Errorf("expected balance 250.0, got %f", acc.Balance)
+	}
+}
