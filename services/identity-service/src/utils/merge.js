@@ -2,21 +2,25 @@
  * Deep merge utility for customer KYC and metadata enrichment.
  * Merges properties of source into target recursively.
  */
+const BLOCKED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
 function deepMerge(target, source) {
   if (!target || typeof target !== 'object') {
     return target;
   }
+
   if (!source || typeof source !== 'object') {
     return target;
   }
 
   for (const key of Object.keys(source)) {
-    if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+    if (BLOCKED_KEYS.has(key)) {
       continue;
     }
+
     const val = source[key];
     if (val && typeof val === 'object' && !Array.isArray(val)) {
-      if (!target[key] || typeof target[key] !== 'object') {
+      if (!Object.prototype.hasOwnProperty.call(target, key) || typeof target[key] !== 'object' || target[key] === null) {
         target[key] = {};
       }
       deepMerge(target[key], val);
