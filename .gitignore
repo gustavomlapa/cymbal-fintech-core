@@ -49,4 +49,9 @@ uploads/
 .idea/
 *.swp
 *.swo
-
+# CodeMender & CI artifacts
+.codemender/
+.cm_project
+cm-linux-amd64.zip
+gha-creds-*.json
+reports/

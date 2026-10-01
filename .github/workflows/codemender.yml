@@ -82,6 +82,7 @@ jobs:
           unzip -q cm-linux-amd64.zip
           chmod +x cm
           sudo mv cm /usr/local/bin/cm
+          rm -f cm-linux-amd64.zip
           echo "CodeMender CLI installed at: $(which cm)"
           cm --version || true
 
@@ -109,7 +110,20 @@ jobs:
           cm find . --compact --unrestricted || true
 
           echo "==> Exporting discovered findings..."
-          cm report -f json > reports/findings.json 2>/dev/null || echo '{"findings":[]}' > reports/findings.json
+          cm report --format json > reports/findings.json 2>/dev/null || true
+
+          # Fallback to state.db if cm report output is empty
+          if [ ! -s reports/findings.json ] || [ "$(cat reports/findings.json | tr -d '[:space:]')" = "[]" ] || [ "$(cat reports/findings.json | tr -d '[:space:]')" = "" ]; then
+            for db_path in "$HOME/.codemender/state.db" ".codemender/state.db"; do
+              if [ -f "$db_path" ]; then
+                echo "Exporting findings from SQLite database $db_path..."
+                sqlite3 -json "$db_path" "SELECT id as finding_id, title, file_path, severity, status FROM findings;" > reports/findings.json 2>/dev/null || true
+                break
+              fi
+            done
+          fi
+
+          echo "Exported findings count: $(jq 'if type=="array" then length else (.findings // [] | length) end' reports/findings.json 2>/dev/null || echo 0)"
 
       # 8. Loop through findings: execute cm verify and cm fix
       - name: Verify Exploitability and Apply Remediation Loop
@@ -118,25 +132,37 @@ jobs:
           FINDINGS_JSON="reports/findings.json"
           APPLY_FIX="${{ github.event.inputs.apply_fixes != 'false' }}"
 
-          mkdir -p reports
-          echo "| Finding ID | Title / Vulnerability | Severity | Exploit Verification (\`cm verify\`) | Remediation (\`cm fix\`) |" > reports/summary.md
-          echo "| :--- | :--- | :--- | :--- | :--- |" >> reports/summary.md
+          # Configure Git user for automated fix commits
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          if [ ! -s "$FINDINGS_JSON" ] || ! jq -e '.findings' "$FINDINGS_JSON" >/dev/null 2>&1; then
+          mkdir -p reports
+          echo "| Finding ID | Title / Vulnerability | File | Severity | Exploit Verification (\`cm verify\`) | Remediation (\`cm fix\`) |" > reports/summary.md
+          echo "| :--- | :--- | :--- | :--- | :--- | :--- |" >> reports/summary.md
+
+          if [ ! -s "$FINDINGS_JSON" ]; then
             echo "No findings recorded in JSON report."
-            echo "| - | Nenhum finding detectado | - | - | - |" >> reports/summary.md
+            echo "| - | Nenhum finding detectado | - | - | - | - |" >> reports/summary.md
             exit 0
           fi
 
-          FINDING_IDS=$(jq -r '.findings[]? | select(.status != "fixed") | .id' "$FINDINGS_JSON" | grep -v '^$' || true)
+          # Deduplicate findings by target file_path and title (case-insensitive)
+          DEDUP_JSON=$(jq -c '
+            (if type=="array" then . else .findings // [] end)
+            | map(select((.status // "OPEN" | ascii_upcase) != "FIXED"))
+            | group_by((.file_path // .file // "") + "::" + ((.title // .message // "") | ascii_downcase))
+            | map(.[0])
+          ' "$FINDINGS_JSON" 2>/dev/null || echo '[]')
+
+          FINDING_IDS=$(echo "$DEDUP_JSON" | jq -r '.[] | .finding_id // .id' | grep -v '^$' || true)
 
           if [ -z "$FINDING_IDS" ]; then
             echo "No open findings discovered to verify or fix."
-            echo "| - | Nenhuma vulnerabilidade em aberto encontrada | - | - | - |" >> reports/summary.md
+            echo "| - | Nenhuma vulnerabilidade em aberto encontrada | - | - | - | - |" >> reports/summary.md
             exit 0
           fi
 
-          echo "Found open finding IDs:"
+          echo "Found unique open finding IDs after deduplication:"
           echo "$FINDING_IDS"
 
           for fid in $FINDING_IDS; do
@@ -144,15 +170,16 @@ jobs:
             echo "Processing Finding ID: $fid"
             echo "--------------------------------------------------------"
 
-            TITLE=$(jq -r --arg id "$fid" '.findings[]? | select(.id == $id) | .title // .type // "Security Flaw"' "$FINDINGS_JSON" | head -n 1 | tr '|' '/')
-            SEVERITY=$(jq -r --arg id "$fid" '.findings[]? | select(.id == $id) | .severity // "UNKNOWN"' "$FINDINGS_JSON" | head -n 1)
+            TITLE=$(echo "$DEDUP_JSON" | jq -r --arg id "$fid" '.[] | select((.finding_id // .id) == $id) | .title // .type // "Security Flaw"' | head -n 1 | tr '|' '/')
+            SEVERITY=$(echo "$DEDUP_JSON" | jq -r --arg id "$fid" '.[] | select((.finding_id // .id) == $id) | .severity // "UNKNOWN"' | head -n 1)
+            FILE_PATH=$(echo "$DEDUP_JSON" | jq -r --arg id "$fid" '.[] | select((.finding_id // .id) == $id) | .file_path // .file // ""' | head -n 1)
 
             VERIFY_STATUS="SKIPPED"
             FIX_STATUS="SKIPPED"
 
             echo "==> Executing: cm verify $fid"
             if cm verify "$fid" --unrestricted --bypass-warning -y; then
-              VERIFY_STATUS="✅ Confirmed (Exploitable)"
+              VERIFY_STATUS="✅ Confirmed"
             else
               VERIFY_STATUS="⚠️ Unverified"
             fi
@@ -160,13 +187,20 @@ jobs:
             if [ "$APPLY_FIX" = "true" ]; then
               echo "==> Executing: cm fix $fid"
               if cm fix "$fid" --unrestricted --bypass-warning -y; then
-                FIX_STATUS="✅ Patched"
+                # Commit modified source code immediately so subsequent cm operations do not reset it
+                if ! git diff --quiet || [ -n "$(git status --porcelain -uno)" ]; then
+                  git add -u
+                  git commit -m "fix(security): resolve $fid ($TITLE)"
+                  FIX_STATUS="✅ Patched"
+                else
+                  FIX_STATUS="⚠️ No diff produced"
+                fi
               else
                 FIX_STATUS="❌ Fix Failed"
               fi
             fi
 
-            echo "| \`$fid\` | $TITLE | $SEVERITY | $VERIFY_STATUS | $FIX_STATUS |" >> reports/summary.md
+            echo "| \`$fid\` | $TITLE | \`$FILE_PATH\` | $SEVERITY | $VERIFY_STATUS | $FIX_STATUS |" >> reports/summary.md
           done
 
       # 9. Generate SARIF, HTML audit reports and PR description
@@ -175,16 +209,16 @@ jobs:
         run: |
           mkdir -p reports
           echo "==> Generating SARIF report..."
-          cm report -f sarif > reports/codemender.sarif 2>/dev/null || true
+          cm report --format sarif > reports/codemender.sarif 2>/dev/null || true
 
           echo "==> Generating HTML report..."
-          cm report -f html 2>/dev/null || true
+          cm report --format html 2>/dev/null || true
           if [ -d "$HOME/.codemender/reports" ]; then
             cp -r "$HOME/.codemender/reports"/* reports/ 2>/dev/null || true
           fi
 
-          echo "==> Generating git diff patch..."
-          git diff > reports/codemender-changes.patch 2>/dev/null || true
+          echo "==> Generating unified git diff patch against base branch..."
+          git diff origin/${{ github.event.inputs.base_branch || 'main' }}...HEAD > reports/codemender-changes.patch 2>/dev/null || git diff HEAD~1 > reports/codemender-changes.patch 2>/dev/null || true
 
           echo "==> Composing Pull Request markdown description..."
           {
