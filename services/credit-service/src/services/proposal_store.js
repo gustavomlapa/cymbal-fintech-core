@@ -1,12 +1,23 @@
+const ALLOWED_STATUSES = new Set([
+  'DRAFT',
+  'ANALYSIS_PENDING',
+  'APPROVED',
+  'REJECTED',
+  'CONTRACT_SIGNED',
+  'DISBURSEMENT_READY',
+  'DISBURSED',
+  'CANCELLED'
+]);
+
 const ALLOWED_TRANSITIONS = {
   DRAFT: ['ANALYSIS_PENDING', 'CANCELLED'],
   ANALYSIS_PENDING: ['APPROVED', 'REJECTED', 'CANCELLED'],
-  APPROVED: ['APPROVED', 'CONTRACT_SIGNED', 'CANCELLED'],
-  REJECTED: [],
+  APPROVED: ['CONTRACT_SIGNED', 'CANCELLED'],
   CONTRACT_SIGNED: ['DISBURSEMENT_READY', 'CANCELLED'],
   DISBURSEMENT_READY: ['DISBURSED', 'CANCELLED'],
-  DISBURSED: [],
-  CANCELLED: []
+  REJECTED: [],
+  CANCELLED: [],
+  DISBURSED: []
 };
 
 class ProposalStore {
@@ -113,8 +124,7 @@ class ProposalStore {
   }
 
   /**
-   * Updates proposal lifecycle status.
-   * Note: Missing transition guard allows jumping directly from DRAFT or REJECTED to DISBURSEMENT_READY.
+   * Updates proposal lifecycle status with state-machine transition guard validation.
    */
   updateStatus(id, newStatus, reason = '') {
     const proposal = this.proposals.get(id);
@@ -122,14 +132,25 @@ class ProposalStore {
       throw new Error('Proposal not found');
     }
 
-    // Business logic vulnerability: omits strict state-machine transition guard validation
+    if (!ALLOWED_STATUSES.has(newStatus)) {
+      throw new Error(`Invalid status: ${newStatus}`);
+    }
+
     if (proposal.status === 'CANCELLED') {
       throw new Error('Cannot update cancelled proposal');
     }
 
-    const allowed = ALLOWED_TRANSITIONS[proposal.status];
-    if (!allowed || !allowed.includes(newStatus)) {
-      throw new Error(`Invalid status transition from ${proposal.status} to ${newStatus}`);
+    if (proposal.status === 'REJECTED') {
+      throw new Error('Cannot update rejected proposal');
+    }
+
+    if (proposal.status === 'DISBURSED') {
+      throw new Error('Cannot update disbursed proposal');
+    }
+
+    const allowed = ALLOWED_TRANSITIONS[proposal.status] || [];
+    if (!allowed.includes(newStatus) && newStatus !== proposal.status) {
+      throw new Error(`Invalid state transition from ${proposal.status} to ${newStatus}`);
     }
 
     proposal.status = newStatus;
@@ -144,5 +165,4 @@ class ProposalStore {
   }
 }
 
-module.exports = { ProposalStore };
-
+module.exports = { ProposalStore, ALLOWED_STATUSES, ALLOWED_TRANSITIONS };
