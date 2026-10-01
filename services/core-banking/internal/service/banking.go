@@ -132,8 +132,11 @@ func (s *BankingService) Debit(accountID string, amount float64, description, re
 }
 
 // GetStatement aggregates transactions for an account statement.
-// Note: Cached response is scoped to customerID and accountID, with ownership validation.
 func (s *BankingService) GetStatement(customerID, accountID string) (*domain.Statement, error) {
+	if customerID == "" {
+		return nil, domain.ErrUnauthorizedAccess
+	}
+
 	cacheKey := fmt.Sprintf("stmt:%s:%s", customerID, accountID)
 
 	s.cacheMu.RLock()
@@ -141,7 +144,6 @@ func (s *BankingService) GetStatement(customerID, accountID string) (*domain.Sta
 	s.cacheMu.RUnlock()
 	if found {
 		if cached.Account.CustomerID != customerID {
-			s.logger.Warn("unauthorized statement access attempt from cache", "accountId", accountID, "callerCustomerId", customerID, "ownerCustomerId", cached.Account.CustomerID)
 			return nil, domain.ErrUnauthorizedAccess
 		}
 		s.logger.Debug("serving statement from cache", "cacheKey", cacheKey)
@@ -154,7 +156,11 @@ func (s *BankingService) GetStatement(customerID, accountID string) (*domain.Sta
 	}
 
 	if acc.CustomerID != customerID {
-		s.logger.Warn("unauthorized statement access attempt", "accountId", accountID, "callerCustomerId", customerID, "ownerCustomerId", acc.CustomerID)
+		s.logger.Warn("unauthorized statement access attempt",
+			"accountId", accountID,
+			"callerCustomerId", customerID,
+			"ownerCustomerId", acc.CustomerID,
+		)
 		return nil, domain.ErrUnauthorizedAccess
 	}
 
@@ -196,9 +202,10 @@ func (s *BankingService) invalidateStatementCache(accountID string) {
 	defer s.cacheMu.Unlock()
 	suffix := ":" + accountID
 	for k := range s.statementCache {
-		if strings.HasSuffix(k, suffix) || k == fmt.Sprintf("stmt:%s", accountID) {
+		if strings.HasSuffix(k, suffix) {
 			delete(s.statementCache, k)
 		}
 	}
+	delete(s.statementCache, fmt.Sprintf("stmt:%s", accountID))
 }
 

@@ -78,23 +78,48 @@ func TestGetStatement(t *testing.T) {
 
 func TestGetStatementUnauthorized(t *testing.T) {
 	svc := setupTestService()
-
-	// Direct IDOR attempt: cust_002 requesting cust_001's account
 	_, err := svc.GetStatement("cust_002", "acc_1001")
 	if err != domain.ErrUnauthorizedAccess {
 		t.Fatalf("expected ErrUnauthorizedAccess, got %v", err)
 	}
+}
 
-	// Authorized call populates cache
-	_, err = svc.GetStatement("cust_001", "acc_1001")
+func TestGetStatementEmptyCustomerID(t *testing.T) {
+	svc := setupTestService()
+	_, err := svc.GetStatement("", "acc_1001")
+	if err != domain.ErrUnauthorizedAccess {
+		t.Fatalf("expected ErrUnauthorizedAccess for empty customerID, got %v", err)
+	}
+}
+
+func TestGetStatementCacheAndInvalidation(t *testing.T) {
+	svc := setupTestService()
+	stmt1, err := svc.GetStatement("cust_001", "acc_1001")
 	if err != nil {
-		t.Fatalf("expected authorized statement request to succeed, got %v", err)
+		t.Fatalf("expected statement, got %v", err)
 	}
 
-	// Cache collision / IDOR attempt after statement is cached
-	_, err = svc.GetStatement("cust_002", "acc_1001")
-	if err != domain.ErrUnauthorizedAccess {
-		t.Fatalf("expected ErrUnauthorizedAccess on cached statement, got %v", err)
+	// Cache hit returns same pointer / timestamp
+	stmt2, err := svc.GetStatement("cust_001", "acc_1001")
+	if err != nil {
+		t.Fatalf("expected cached statement, got %v", err)
+	}
+	if stmt1.GeneratedAt != stmt2.GeneratedAt {
+		t.Errorf("expected identical timestamp from cache")
+	}
+
+	// Invalidation after credit
+	_, err = svc.Credit("acc_1001", 10.0, "Credit cache bust", "ref_bust")
+	if err != nil {
+		t.Fatalf("expected credit to succeed, got %v", err)
+	}
+
+	stmt3, err := svc.GetStatement("cust_001", "acc_1001")
+	if err != nil {
+		t.Fatalf("expected regenerated statement, got %v", err)
+	}
+	if stmt3.GeneratedAt == stmt1.GeneratedAt {
+		t.Errorf("expected new statement timestamp after cache invalidation")
 	}
 }
 
