@@ -36,7 +36,6 @@ class JwtService {
 
   /**
    * Verifies an incoming JWT token.
-   * Enforces RS256 algorithm verification using the RSA public key.
    */
   verifyToken(token) {
     if (!token || typeof token !== 'string') {
@@ -76,4 +75,3 @@ class JwtService {
 }
 
 module.exports = { JwtService };
-
