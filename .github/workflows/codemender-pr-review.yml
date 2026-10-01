@@ -124,7 +124,15 @@ jobs:
           mkdir -p reports patches
           TARGET_FILES="${{ steps.filter.outputs.files }}"
           echo "==> Scanning modified source files: $TARGET_FILES"
-          cm find $TARGET_FILES --compact --unrestricted || true
+
+          for target_file in $TARGET_FILES; do
+            if [ -f "$target_file" ]; then
+              echo "--------------------------------------------------------"
+              echo "==> Running CodeMender scan on: $target_file"
+              echo "--------------------------------------------------------"
+              cm find "$target_file" --compact --unrestricted -y || true
+            fi
+          done
 
           echo "==> Exporting scan findings..."
           cm report --format json > reports/findings.json 2>/dev/null || true
