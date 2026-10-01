@@ -91,36 +91,29 @@ jobs:
         run: |
           echo "==> Initializing .codemender configuration..."
           cm init
-          echo "==> Verifying cloud reasoning connectivity..."
-          cm init --verify
 
-          # Ensure clean state with no residual caches or previous run artifacts
-          cm clean || true
-
-          # Configure CodeMender exclusions and sandbox policy
+          # Configure CodeMender exclusions and sandbox policy cleanly
           for cfg in "$HOME/.codemender/config.yaml" ".codemender/config.yaml"; do
             if [ -f "$cfg" ]; then
               echo "Configuring sandbox and exclusion paths in $cfg"
-              sed -i 's/enabled: true/enabled: false/g' "$cfg" 2>/dev/null || true
-              {
-                echo ""
-                echo "exclude_paths:"
-                echo "  - \"docs\""
-                echo "  - \"reports\""
-                echo "  - \"scripts\""
-                echo "  - \".github\""
-                echo "  - \"PLAN.md\""
-                echo "  - \"README.md\""
-                echo ""
-                echo "scan:"
-                echo "  extensions:"
-                echo "    include:"
-                echo "      - .js"
-                echo "      - .py"
-                echo "      - .go"
-              } >> "$cfg"
+              ruby -ryaml -e '
+                path = ARGV[0]
+                data = YAML.load_file(path) || {}
+                data["sandbox"] ||= {}
+                data["sandbox"]["enabled"] = false
+                data["scan"] ||= {}
+                data["scan"]["exclude_dirs"] ||= []
+                ["docs", "reports", "scripts", ".github"].each do |d|
+                  data["scan"]["exclude_dirs"] << d unless data["scan"]["exclude_dirs"].include?(d)
+                end
+                data["exclude_paths"] = ["docs", "reports", "scripts", ".github", "PLAN.md", "README.md"]
+                File.write(path, YAML.dump(data))
+              ' "$cfg" 2>/dev/null || sed -i 's/enabled: true/enabled: false/g' "$cfg" 2>/dev/null || true
             fi
           done
+
+          echo "==> Verifying cloud reasoning connectivity and configuration..."
+          cm init --verify
 
       # 7. Vulnerability Discovery (cm find)
       - name: Scan Codebase (cm find)
