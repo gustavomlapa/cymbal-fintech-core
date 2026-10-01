@@ -1,3 +1,14 @@
+const ALLOWED_TRANSITIONS = {
+  DRAFT: ['ANALYSIS_PENDING', 'CANCELLED'],
+  ANALYSIS_PENDING: ['APPROVED', 'REJECTED', 'CANCELLED'],
+  APPROVED: ['APPROVED', 'CONTRACT_SIGNED', 'CANCELLED'],
+  REJECTED: [],
+  CONTRACT_SIGNED: ['DISBURSEMENT_READY', 'CANCELLED'],
+  DISBURSEMENT_READY: ['DISBURSED', 'CANCELLED'],
+  DISBURSED: [],
+  CANCELLED: []
+};
+
 class ProposalStore {
   constructor() {
     this.proposals = new Map();
@@ -114,6 +125,11 @@ class ProposalStore {
     // Business logic vulnerability: omits strict state-machine transition guard validation
     if (proposal.status === 'CANCELLED') {
       throw new Error('Cannot update cancelled proposal');
+    }
+
+    const allowed = ALLOWED_TRANSITIONS[proposal.status];
+    if (!allowed || !allowed.includes(newStatus)) {
+      throw new Error(`Invalid status transition from ${proposal.status} to ${newStatus}`);
     }
 
     proposal.status = newStatus;
