@@ -26,14 +26,15 @@ jobs:
       GOOGLE_CLOUD_PROJECT: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
 
     steps:
-      # 1. Checkout repository with full history to compare branch diffs
+      # 1. Checkout PR head branch with full history to compare branch diffs
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
 
-      # 2. Identify only modified source files in this PR
-      - name: Identify Changed Source Files
+      # 2. Identify modified source files and service directories in this PR
+      - name: Identify Changed Source Files & Services
         id: filter
         run: |
           echo "==> Comparing branch HEAD against base: origin/${{ github.base_ref }}"
@@ -50,6 +51,15 @@ jobs:
             FILES_STRING=$(echo "$CHANGED_FILES" | tr '\n' ' ')
             echo "has_files=true" >> "$GITHUB_OUTPUT"
             echo "files=$FILES_STRING" >> "$GITHUB_OUTPUT"
+
+            # Extract distinct service root directories (e.g. services/web-portal)
+            CHANGED_SERVICES=$(echo "$CHANGED_FILES" | grep -E '^services/[^/]+' | cut -d/ -f1,2 | sort -u || true)
+            if [ -z "$CHANGED_SERVICES" ]; then
+              CHANGED_SERVICES=$(echo "$CHANGED_FILES" | xargs -n1 dirname | sort -u || true)
+            fi
+            SERVICES_STRING=$(echo "$CHANGED_SERVICES" | tr '\n' ' ')
+            echo "Target services to scan: $SERVICES_STRING"
+            echo "services=$SERVICES_STRING" >> "$GITHUB_OUTPUT"
           fi
 
       # 3. Informative Note if No Code Files Changed
@@ -116,21 +126,21 @@ jobs:
 
           cm init --verify
 
-      # 8. Scan Only Changed Files
-      - name: Scan Changed Files (cm find)
+      # 8. Scan Only Changed Services
+      - name: Scan Changed Services (cm find)
         if: steps.filter.outputs.has_files == 'true'
         id: cm-scan
         run: |
           mkdir -p reports patches
-          TARGET_FILES="${{ steps.filter.outputs.files }}"
-          echo "==> Scanning modified source files: $TARGET_FILES"
+          TARGET_SERVICES="${{ steps.filter.outputs.services }}"
+          echo "==> Scanning modified services: $TARGET_SERVICES"
 
-          for target_file in $TARGET_FILES; do
-            if [ -f "$target_file" ]; then
+          for svc in $TARGET_SERVICES; do
+            if [ -d "$svc" ]; then
               echo "--------------------------------------------------------"
-              echo "==> Running CodeMender scan on: $target_file"
+              echo "==> Running CodeMender scan on service: $svc"
               echo "--------------------------------------------------------"
-              cm find "$target_file" --compact --unrestricted -y || true
+              cm find "$svc" --compact --unrestricted -y || true
             fi
           done
 
@@ -146,10 +156,10 @@ jobs:
             done
           fi
 
-          echo "Exported findings count: $(jq 'if type=="array" then length else (.findings // [] | length) end' reports/findings.json 2>/dev/null || echo 0)"
+          echo "Exported raw findings count: $(jq 'if type=="array" then length else (.findings // [] | length) end' reports/findings.json 2>/dev/null || echo 0)"
 
-      # 9. Verify Exploitability and Synthesize Fixes
-      - name: Verify Exploitability & Synthesize Fixes (cm verify & cm fix)
+      # 9. Deduplicate Findings & Synthesize Fixes (Fast PR: cm fix directly, no cm verify)
+      - name: Deduplicate & Synthesize Fixes (cm fix)
         if: steps.filter.outputs.has_files == 'true'
         id: cm-remediate
         run: |
@@ -159,10 +169,42 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Extract findings from JSON
-          FINDINGS_DATA=$(jq -c 'if type=="array" then . else .findings // [] end' "$FINDINGS_JSON" 2>/dev/null || echo '[]')
-          FINDING_IDS=$(echo "$FINDINGS_DATA" | jq -r '.[].id // .[].finding_id' | grep -v '^$' || true)
+          # Deduplicate findings by (normalized file path + title)
+          node -e '
+            const fs = require("fs");
+            if (!fs.existsSync("reports/findings.json")) {
+              fs.writeFileSync("reports/dedup_findings.json", "[]");
+              process.exit(0);
+            }
+            let rawData;
+            try {
+              rawData = JSON.parse(fs.readFileSync("reports/findings.json", "utf8"));
+            } catch (e) {
+              rawData = [];
+            }
+            const list = Array.isArray(rawData) ? rawData : (rawData.findings || []);
+            const seen = new Set();
+            const unique = [];
+            for (const f of list) {
+              const normPath = (f.file_path || f.file || "").replace(/^.*(services\/.*)$/, "$1");
+              const normTitle = (f.title || f.type || "").trim().toLowerCase();
+              const key = `${normPath}::${normTitle}`;
+              if (!seen.has(key) && normTitle) {
+                seen.add(key);
+                unique.push({
+                  id: f.id || f.finding_id,
+                  title: f.title || f.type || "Security Flaw",
+                  file_path: normPath,
+                  severity: f.severity || "UNKNOWN",
+                  description: f.description || f.hypothesis || ""
+                });
+              }
+            }
+            fs.writeFileSync("reports/dedup_findings.json", JSON.stringify(unique, null, 2));
+            console.log(`Deduplicated findings: ${list.length} raw -> ${unique.length} unique.`);
+          '
 
+          FINDING_IDS=$(jq -r '.[].id' reports/dedup_findings.json 2>/dev/null | grep -v '^$' || true)
           REVIEW_DATA="[]"
 
           for fid in $FINDING_IDS; do
@@ -170,23 +212,15 @@ jobs:
             echo "Processing Finding ID: $fid"
             echo "--------------------------------------------------------"
 
-            ITEM=$(echo "$FINDINGS_DATA" | jq -c --arg id "$fid" '.[] | select((.id // .finding_id) == $id)' | head -n 1)
-            TITLE=$(echo "$ITEM" | jq -r '.title // .type // "Security Flaw"')
-            FILE_PATH=$(echo "$ITEM" | jq -r '.file_path // .file // ""')
-            SEVERITY=$(echo "$ITEM" | jq -r '.severity // "UNKNOWN"')
-            DESC=$(echo "$ITEM" | jq -r '.description // .hypothesis // ""')
+            ITEM=$(jq -c --arg id "$fid" '.[] | select(.id == $id)' reports/dedup_findings.json | head -n 1)
+            TITLE=$(echo "$ITEM" | jq -r '.title')
+            FILE_PATH=$(echo "$ITEM" | jq -r '.file_path')
+            SEVERITY=$(echo "$ITEM" | jq -r '.severity')
+            DESC=$(echo "$ITEM" | jq -r '.description')
 
-            VERIFY_STATUS="SKIPPED"
             FIX_STATUS="SKIPPED"
 
-            echo "==> Executing: cm verify $fid"
-            if cm verify "$fid" --unrestricted --bypass-warning -y; then
-              VERIFY_STATUS="✅ Confirmed"
-            else
-              VERIFY_STATUS="⚠️ Unverified"
-            fi
-
-            echo "==> Executing: cm fix $fid"
+            echo "==> Synthesizing fix with: cm fix $fid"
             if cm fix "$fid" --unrestricted --bypass-warning -y; then
               if ! git diff --quiet || [ -n "$(git status --porcelain -uno)" ]; then
                 git add -u
@@ -205,9 +239,8 @@ jobs:
               --arg file "$FILE_PATH" \
               --arg severity "$SEVERITY" \
               --arg desc "$DESC" \
-              --arg vstatus "$VERIFY_STATUS" \
               --arg fstatus "$FIX_STATUS" \
-              '{id: $id, title: $title, file_path: $file, severity: $severity, description: $desc, verify_status: $vstatus, fix_status: $fstatus}')
+              '{id: $id, title: $title, file_path: $file, severity: $severity, description: $desc, fix_status: $fstatus}')
 
             REVIEW_DATA=$(echo "$REVIEW_DATA" | jq --argjson entry "$ENTRY" '. + [$entry]')
           done
