@@ -132,15 +132,15 @@ jobs:
         id: cm-scan
         run: |
           mkdir -p reports patches
-          TARGET_SERVICES="${{ steps.filter.outputs.services }}"
-          echo "==> Scanning modified services: $TARGET_SERVICES"
+          TARGET_FILES="${{ steps.filter.outputs.files }}"
+          echo "==> Scanning modified source files: $TARGET_FILES"
 
-          for svc in $TARGET_SERVICES; do
-            if [ -d "$svc" ]; then
+          for target_file in $TARGET_FILES; do
+            if [ -f "$target_file" ]; then
               echo "--------------------------------------------------------"
-              echo "==> Running CodeMender scan on service: $svc"
+              echo "==> Running CodeMender scan on: $target_file"
               echo "--------------------------------------------------------"
-              cm find "$svc" --compact --unrestricted -y || true
+              cm find "$target_file" --compact --unrestricted -y || true
             fi
           done
 
