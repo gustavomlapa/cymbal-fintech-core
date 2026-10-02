@@ -24,3 +24,9 @@
 - [x] Implement Comment 2: Inline code suggestions via GitHub Review API with `suggestion` blocks.
 - [x] Validate workflow YAML syntax and test diff parsing.
 
+## CodeMender PR Optimization (Option 1: Service Scan, No Verify, No Duplicates)
+- [x] Update `.github/workflows/codemender-pr-review.yml` to scan by service directory rather than individual files.
+- [x] Remove `cm verify` from PR workflow and deduplicate findings by `file_path + title`.
+- [x] Update `.github/scripts/post-pr-review.js` table formatting without verify column.
+- [x] Validate YAML, JS syntax and commit/push to test on PR #4.
+

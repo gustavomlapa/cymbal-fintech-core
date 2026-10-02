@@ -4,7 +4,7 @@ const path = require('path');
 /**
  * Parses unified diff text into an array of file diff objects with hunk details.
  */
-function parseUnifiedDiff(diffText) {
+function parseUnifiedDiff(diffText, findings = []) {
   const fileDiffs = [];
   if (!diffText) return fileDiffs;
 
@@ -19,7 +19,14 @@ function parseUnifiedDiff(diffText) {
       currentFile = null;
       currentHunk = null;
     } else if (line.startsWith('+++ b/')) {
-      const filePath = line.substring(6).trim();
+      let filePath = line.substring(6).trim();
+      // Ensure path is relative to repository root
+      if (!filePath.startsWith('services/') && findings && findings.length > 0) {
+        const matchingFinding = findings.find(f => (f.file_path || '').endsWith('/' + filePath) || (f.file_path || '') === filePath);
+        if (matchingFinding && matchingFinding.file_path) {
+          filePath = matchingFinding.file_path;
+        }
+      }
       currentFile = { path: filePath, hunks: [] };
       fileDiffs.push(currentFile);
     } else if (line.startsWith('@@ ') && currentFile) {
@@ -63,7 +70,20 @@ module.exports = async ({ github, context, core }) => {
     }
   }
 
-  const findings = reviewData.findings || [];
+  const rawFindings = reviewData.findings || [];
+
+  // Deduplicate findings by (file_path + title) as an additional safety layer
+  const seenKeys = new Set();
+  const findings = [];
+  for (const f of rawFindings) {
+    const normPath = (f.file_path || f.file || '').replace(/^.*(services\/.*)$/, '$1');
+    const normTitle = (f.title || f.type || '').trim().toLowerCase();
+    const key = `${normPath}::${normTitle}`;
+    if (!seenKeys.has(key) && normTitle) {
+      seenKeys.add(key);
+      findings.push({ ...f, file_path: normPath });
+    }
+  }
 
   // =========================================================================
   // COMMENT 1: Detailed Findings Review in PR Discussion
@@ -74,17 +94,17 @@ module.exports = async ({ github, context, core }) => {
     detailedCommentBody = `## 🛡️ CodeMender Security Review
 
 ✅ **No security vulnerabilities detected** in the modified files for this Pull Request!
-* All scanned files passed static analysis and exploitability verification checks.
+* All scanned services and files passed static analysis and security checks.
 `;
   } else {
     detailedCommentBody = `## 🛡️ CodeMender Security Review: Findings Analysis
 
-CodeMender scanned the source files modified in this Pull Request and evaluated their exploitability and potential remediations.
+CodeMender scanned the services modified in this Pull Request and evaluated potential security remediations.
 
 ### 📋 Detected Vulnerabilities Summary
 
-| Finding ID | Title / Vulnerability | File | Severity | Exploit Verification (\`cm verify\`) | Remediation (\`cm fix\`) |
-| :--- | :--- | :--- | :--- | :--- | :--- |
+| Finding ID | Title / Vulnerability | File | Severity | Remediation (\`cm fix\`) |
+| :--- | :--- | :--- | :--- | :--- |
 `;
 
     for (const f of findings) {
@@ -92,10 +112,9 @@ CodeMender scanned the source files modified in this Pull Request and evaluated 
       const title = (f.title || 'Security Flaw').replace(/\|/g, '/');
       const filePath = f.file_path || f.file || 'unknown';
       const severity = f.severity || 'UNKNOWN';
-      const verifyStatus = f.verify_status || '⚠️ Unverified';
       const fixStatus = f.fix_status || 'SKIPPED';
 
-      detailedCommentBody += `| \`${fid}\` | ${title} | \`${filePath}\` | **${severity}** | ${verifyStatus} | ${fixStatus} |\n`;
+      detailedCommentBody += `| \`${fid}\` | ${title} | \`${filePath}\` | **${severity}** | ${fixStatus} |\n`;
     }
 
     detailedCommentBody += `
@@ -115,7 +134,7 @@ CodeMender scanned the source files modified in this Pull Request and evaluated 
 <summary><b>${title}</b> (<code>${fid}</code>) - <i>${filePath}</i></summary>
 
 > **Severity:** ${f.severity || 'UNKNOWN'}  
-> **Exploit Verification:** ${f.verify_status || 'N/A'}  
+> **Remediation Status:** ${f.fix_status || 'N/A'}  
 > **Description:** ${desc}
 
 </details>
@@ -156,7 +175,7 @@ CodeMender scanned the source files modified in this Pull Request and evaluated 
     return;
   }
 
-  const fileDiffs = parseUnifiedDiff(patchText);
+  const fileDiffs = parseUnifiedDiff(patchText, findings);
   const inlineComments = [];
 
   for (const fileDiff of fileDiffs) {
