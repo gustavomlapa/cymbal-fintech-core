@@ -28,5 +28,5 @@
 - [x] Update `.github/workflows/codemender-pr-review.yml` to scan by service directory rather than individual files.
 - [x] Remove `cm verify` from PR workflow and deduplicate findings by `file_path + title`.
 - [x] Update `.github/scripts/post-pr-review.js` table formatting without verify column.
-- [ ] Validate YAML, JS syntax and commit/push to test on PR #4.
+- [x] Validate YAML, JS syntax and commit/push to test on PR #4.
 
